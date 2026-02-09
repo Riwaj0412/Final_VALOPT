@@ -1,7 +1,6 @@
 import customtkinter as ctk
 import launcher
 import specs_factory
-import optimize_button
 from toggle_logic import toggle_specs
 
 
@@ -17,13 +16,13 @@ class DashboardHUD(ctk.CTkFrame):
         ctk.CTkLabel(self, text="V A L O P T", font=("Impact", 70),
                      text_color="#ff4655").pack(pady=(60, 20))
 
-        # 2. Specs Grid Container
+        # 2. Middle Section (Specs Grid - starts hidden)
         self.grid_container = ctk.CTkFrame(self, fg_color="transparent")
         specs_factory.build_specs_grid(self.grid_container, self.node_widgets)
 
-        # 3. HOME CONTROLS (Play, Reveal, Optimize)
+        # 3. HOME BUTTONS GROUP (Play + Reveal + Optimize)
         self.home_controls = ctk.CTkFrame(self, fg_color="transparent")
-        self.home_controls.pack(expand=True)
+        self.home_controls.pack(expand=True)  # Center them initially
 
         self.play_btn = ctk.CTkButton(
             self.home_controls, text="[ PLAY ]", font=("Arial", 22, "bold"),
@@ -44,26 +43,18 @@ class DashboardHUD(ctk.CTkFrame):
 
         self.optimize_btn = ctk.CTkButton(
             self.home_footer, text="[ OPTIMIZE ]", font=("Arial", 18),
-            fg_color="#ff4655", height=60, width=250,
-            command=self.show_optimize_menu  # New Function
+            fg_color="#ff4655", height=60, width=250
         )
         self.optimize_btn.pack(side="left", padx=20)
 
-        # 4. SPECS CONTROLS (Hide Specs)
+        # 4. SPECS BUTTONS GROUP (Only Hide Specs)
         self.specs_controls = ctk.CTkFrame(self, fg_color="transparent")
-        ctk.CTkButton(
+
+        self.hide_btn = ctk.CTkButton(
             self.specs_controls, text="[ HIDE SPECS ]", font=("Arial", 18),
             height=60, width=250, command=lambda: toggle_specs(self)
-        ).pack(pady=40)
-
-        # 5. OPTIMIZATION MENU (The Manual/Recommended View)
-        self.opt_menu_container = ctk.CTkFrame(self, fg_color="transparent")
-        # Note: Not packed yet
-
-    def show_optimize_menu(self):
-        """Hides home buttons and shows Manual/Recommended buttons."""
-        self.home_controls.pack_forget()
-        optimize_button.build_optimize_menu(self)
+        )
+        self.hide_btn.pack(pady=40)
 
     def handle_play_click(self):
         self.play_btn.configure(text="[ LAUNCHING... ]", state="disabled")
