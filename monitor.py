@@ -5,7 +5,6 @@ import time
 
 
 def get_real_client_fps():
-    """Scrapes the engine-logged FPS from the local Valorant files."""
     # Official path for Valorant local performance logs
     log_dir = os.path.expandvars(r"%LOCALAPPDATA%\VALORANT\Saved\Logs")
     log_file = os.path.join(log_dir, "ShooterGame.log")
@@ -37,7 +36,6 @@ def get_real_client_fps():
 
 
 def start_monitoring(callback):
-    """The main loop that waits for the game to end to grab stats."""
     game_exe = "VALORANT-Win64-Shipping.exe"
 
     # 1. Wait for game to open

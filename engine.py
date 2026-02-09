@@ -8,43 +8,34 @@ def get_system_report():
         "cpu": "Unknown Processor",
         "gpu": "Unknown Graphics",
         "ram": "0 GB",
-        "os": "Windows 10"  # Added this key to prevent the blank screen crash
+        "os": "Windows 10"
     }
 
-    # 1. CPU Detection
     try:
+        # CPU
         cpu_out = subprocess.check_output(
             "wmic cpu get name", shell=True).decode().splitlines()
         report["cpu"] = [line.strip()
                          for line in cpu_out if line.strip() and "Name" not in line][0]
-    except:
-        report["cpu"] = "Generic Processor"
 
-    # 2. RAM Detection
-    try:
+        # RAM
         ram_raw = subprocess.check_output(
             "wmic computersystem get totalphysicalmemory", shell=True).decode().splitlines()
         ram_bytes = [line.strip() for line in ram_raw if line.strip()
                      and "TotalPhysicalMemory" not in line][0]
         report["ram"] = f"{round(int(ram_bytes) / (1024**3))} GB"
-    except:
-        report["ram"] = "16 GB"
 
-    # 3. GPU Detection
-    try:
+        # GPU
         gpu_out = subprocess.check_output(
             "wmic path win32_VideoController get name", shell=True).decode().splitlines()
         gpus = [line.strip()
                 for line in gpu_out if line.strip() and "Name" not in line]
         report["gpu"] = gpus[0] if gpus else "Integrated Graphics"
-    except:
-        report["gpu"] = "NVIDIA GeForce"
 
-    # 4. OS Detection (The logic that fixes Windows 11 showing up)
-    try:
-        # Build 22000+ is Windows 11. Your Win 10 machine will be lower.
+        # OS (Windows 10/11 Fix)
         build = sys.getwindowsversion().build
         report["os"] = "Windows 11" if build >= 22000 else "Windows 10"
+
     except:
         pass
 

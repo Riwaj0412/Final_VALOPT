@@ -1,38 +1,26 @@
 def toggle_specs(dashboard):
-    """
-    Handles the logic for showing and hiding the hardware specifications grid.
-    
-    Args:
-        dashboard: The DashboardHUD instance containing the widgets and state.
-    """
-    # Check if the specs are currently hidden
+    """Swaps between Home view and Specs view entirely."""
     if not dashboard.is_revealed:
-        # PHASE 1: REVEAL
-        # Loop through all cards stored in the dictionary and bring them onto the grid
-        for card_key in dashboard.node_widgets:
-            card = dashboard.node_widgets[card_key]
-            # .grid() restores the widget to its assigned row/column position
-            card.grid() 
-        
-        # Update the button text to reflect the next possible action
-        dashboard.reveal_btn.configure(text="[ HIDE SPECS ]")
-        
-        # Update the state tracker
-        dashboard.is_revealed = True
-        
-    else:
-        # PHASE 2: HIDE
-        # Loop through all cards and remove them from the visual layout
-        for card_key in dashboard.node_widgets:
-            card = dashboard.node_widgets[card_key]
-            # .grid_remove() hides the widget but remembers its grid settings
-            card.grid_remove()
-            
-        # Update the button text back to the original state
-        dashboard.reveal_btn.configure(text="[ REVEAL SPECS ]")
-        
-        # Update the state tracker
-        dashboard.is_revealed = False
+        # --- GO TO SPECS VIEW ---
+        # 1. Hide the entire Home button group (Play, Reveal, Optimize)
+        dashboard.home_controls.pack_forget()
 
-# This logic ensures that the 'node_widgets' dictionary created in 
-# specs_factory.py is the single source of truth for what gets toggled.
+        # 2. Show the hardware cards
+        dashboard.grid_container.pack(expand=True, fill="both", padx=50)
+        for card in dashboard.node_widgets.values():
+            card.grid()
+
+        # 3. Show ONLY the Hide button at the bottom
+        dashboard.specs_controls.pack(side="bottom", pady=20)
+
+        dashboard.is_revealed = True
+    else:
+        # --- GO BACK TO HOME VIEW ---
+        # 1. Hide the specs and the single Hide button
+        dashboard.grid_container.pack_forget()
+        dashboard.specs_controls.pack_forget()
+
+        # 2. Bring back the entire Home group
+        dashboard.home_controls.pack(expand=True)
+
+        dashboard.is_revealed = False
