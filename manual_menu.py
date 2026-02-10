@@ -4,15 +4,13 @@ import styles
 
 class ManualMenu(ctk.CTkFrame):
     def __init__(self, master, back_command):
-        # Set the frame to cover the entire container
         super().__init__(master, fg_color="transparent")
 
-        # 1. Title
+        # 1. Title - Manual Settings
         self.title_label = ctk.CTkLabel(
-            self,
-            text="MANUAL SETTINGS",
-            font=styles.FONT_IMPACT_LG,
-            text_color=styles.VALO_RED
+            self, text="MANUAL SETTINGS",
+            font=styles.FONT_ORBITRON_MD,
+            text_color="#ff4655"
         )
         self.title_label.pack(pady=(40, 20))
 
@@ -20,46 +18,43 @@ class ManualMenu(ctk.CTkFrame):
         self.button_frame = ctk.CTkFrame(self, fg_color="transparent")
         self.button_frame.pack(expand=True)
 
-        # NVIDIA Button
-        self.create_menu_button(
-            self.button_frame, "NVIDIA Control Panel", "#76B900")
+        # Tactical buttons with Orbitron and Red Glow
+        self.create_tactical_button("NVIDIA Control Panel", "#76B900")
+        self.create_tactical_button("WINDOWS", "#808080")
+        self.create_tactical_button("IN GAME", "#ff4655")
 
-        # Windows Button
-        self.create_menu_button(self.button_frame, "WINDOWS", "#808080")
-
-        # In Game Button
-        self.create_menu_button(self.button_frame, "IN GAME", styles.VALO_RED)
-
-        # 3. PROMINENT BACK BUTTON
+        # 3. BACK TO HOME LINK
         self.back_btn = ctk.CTkLabel(
-            self,
-            text="[ BACK TO HOME ]",
-            font=("Arial", 16, "bold"),     # Made larger and bold
-            text_color="#FF4655",           # High-visibility Valorant Red
+            self, text="[ BACK TO HOME ]",
+            font=styles.FONT_ORBITRON_SM,
+            text_color="#ff4655",
             cursor="hand2"
         )
         self.back_btn.pack(side="bottom", pady=40)
 
-        # Link the click to the back_command
+        # Hover logic
+        self.back_btn.bind(
+            "<Enter>", lambda e: self.back_btn.configure(text_color="#FF8C94"))
+        self.back_btn.bind(
+            "<Leave>", lambda e: self.back_btn.configure(text_color="#ff4655"))
         self.back_btn.bind("<Button-1>", lambda e: self.on_back(back_command))
 
-    def create_menu_button(self, parent, text, color):
+    def create_tactical_button(self, text, border_color):
         btn = ctk.CTkButton(
-            parent,
+            self.button_frame,
             text=text,
+            font=styles.FONT_ORBITRON_MD,
             width=500,
-            height=70,
+            height=80,
             fg_color="transparent",
-            border_color=color,
             border_width=2,
-            text_color="white",
-            font=styles.FONT_IMPACT_SM if hasattr(
-                styles, 'FONT_IMPACT_SM') else ("Impact", 24),
-            hover_color="#1a1a1a"
+            border_color=border_color,
+            text_color="white"
         )
+        styles.apply_tactical_style(btn)
         btn.pack(pady=10)
+        return btn
 
     def on_back(self, back_command):
-        """Clears this menu and runs the back function"""
-        self.destroy()  # Removes the manual menu frame
-        back_command()  # Calls the function to rebuild the main optimize menu
+        self.destroy()
+        back_command()

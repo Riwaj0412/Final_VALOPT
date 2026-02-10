@@ -1,67 +1,61 @@
 import customtkinter as ctk
 import styles
-from manual_menu import ManualMenu
+from manual_menu import ManualMenu  # FIXES THE UNDEFINED VARIABLE ERROR
 
 
 def build_optimize_menu(dashboard):
-    """Creates the menu with a giant central slash and reactive buttons."""
-    for widget in dashboard.opt_menu_container.winfo_children():
-        widget.destroy()
+    for child in dashboard.opt_menu_container.winfo_children():
+        child.destroy()
 
-    dashboard.opt_menu_container.pack(expand=True, fill="both")
-    content_frame = ctk.CTkFrame(
+    dashboard.opt_menu_container.pack(fill="both", expand=True)
+
+    selection_frame = ctk.CTkFrame(
         dashboard.opt_menu_container, fg_color="transparent")
-    content_frame.pack(expand=True)
+    selection_frame.pack(expand=True)
 
     # --- MANUAL BUTTON ---
     manual_btn = ctk.CTkButton(
-        content_frame,
-        text="MANUAL",
-        font=styles.FONT_IMPACT_LG,
-        width=350,
-        height=220,
-        command=lambda: [
-            [child.destroy()
-             for child in dashboard.opt_menu_container.winfo_children()],
-            ManualMenu(dashboard.opt_menu_container, lambda: build_optimize_menu(
-                dashboard)).pack(fill="both", expand=True)
-        ]
+        selection_frame, text="MANUAL", font=styles.FONT_ORBITRON_MD,
+        width=380, height=250, fg_color="transparent", border_width=1, border_color="gray30",
+        command=lambda: show_manual(dashboard, selection_frame)
     )
     styles.apply_tactical_style(manual_btn)
-    manual_btn.grid(row=0, column=0, padx=20)
+    manual_btn.pack(side="left", padx=20)
 
-    # --- THE GIANT SLASH ---
-    slash_label = ctk.CTkLabel(
-        content_frame, text="/", font=styles.FONT_SLASH,
-        text_color=styles.VALO_RED
-    )
-    slash_label.grid(row=0, column=1, padx=30)
+    # --- DECORATIVE SLASH ---
+    ctk.CTkLabel(selection_frame, text="/", font=("Impact", 120),
+                 text_color="#ff4655").pack(side="left", padx=15)
 
     # --- RECOMMENDED BUTTON ---
     rec_btn = ctk.CTkButton(
-        content_frame, text="RECOMMENDED", font=styles.FONT_IMPACT_LG,
-        width=350, height=220, command=lambda: print("Recommended Mode")
+        selection_frame, text="RECOMMENDED", font=styles.FONT_ORBITRON_MD,
+        width=380, height=250, fg_color="transparent", border_width=1, border_color="gray30",
+        command=lambda: print("Recommended logic...")
     )
     styles.apply_tactical_style(rec_btn)
-    rec_btn.grid(row=0, column=2, padx=20)
+    rec_btn.pack(side="left", padx=20)
 
-    # --- BACK BUTTON ---
-    back_btn = ctk.CTkButton(
-        dashboard.opt_menu_container,
-        text="[ BACK TO HOME ]",
-        font=("Arial", 16, "bold"),        # Increased size and made it bold
-        fg_color="transparent",
-        # Changed from TEXT_DIM to VALO_RED for high visibility
-        text_color="#FF4655",
-        hover_color="#2b2b2b",
-        command=lambda: hide_optimize_menu(dashboard)
+    # --- BACK TO HOME BUTTON ---
+    back_home = ctk.CTkLabel(
+        dashboard.opt_menu_container, text="[ BACK TO HOME ]",
+        font=styles.FONT_ORBITRON_SM, text_color="#ff4655", cursor="hand2"
     )
+    back_home.pack(side="bottom", pady=40)
+    back_home.bind("<Button-1>", lambda e: return_to_home(dashboard))
 
 
-# Reduced pady slightly to keep it on screen
-    back_btn.pack(side="bottom", pady=40)
+def show_manual(dashboard, selection_frame):
+    selection_frame.pack_forget()
+    # Hides the back label before showing sub-menu
+    for child in dashboard.opt_menu_container.winfo_children():
+        if isinstance(child, ctk.CTkLabel) and child.cget("text") == "[ BACK TO HOME ]":
+            child.pack_forget()
+
+    m_menu = ManualMenu(dashboard.opt_menu_container,
+                        lambda: build_optimize_menu(dashboard))
+    m_menu.pack(fill="both", expand=True)
 
 
-def hide_optimize_menu(dashboard):
+def return_to_home(dashboard):
     dashboard.opt_menu_container.pack_forget()
     dashboard.home_controls.pack(expand=True)
