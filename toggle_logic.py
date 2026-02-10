@@ -1,5 +1,4 @@
 def toggle_specs(dashboard):
-    """Swaps between Home view and Specs view entirely."""
     if not dashboard.is_revealed:
         # --- GO TO SPECS VIEW ---
         # 1. Hide the entire Home button group (Play, Reveal, Optimize)

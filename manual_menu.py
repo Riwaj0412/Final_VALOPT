@@ -6,7 +6,6 @@ class ManualMenu(ctk.CTkFrame):
     def __init__(self, master, back_command):
         super().__init__(master, fg_color="transparent")
 
-        # 1. Title - Manual Settings
         self.title_label = ctk.CTkLabel(
             self, text="MANUAL SETTINGS",
             font=styles.FONT_ORBITRON_MD,
@@ -14,7 +13,7 @@ class ManualMenu(ctk.CTkFrame):
         )
         self.title_label.pack(pady=(40, 20))
 
-        # 2. Button Container
+        # Button Container
         self.button_frame = ctk.CTkFrame(self, fg_color="transparent")
         self.button_frame.pack(expand=True)
 
@@ -23,7 +22,7 @@ class ManualMenu(ctk.CTkFrame):
         self.create_tactical_button("WINDOWS", "#808080")
         self.create_tactical_button("IN GAME", "#ff4655")
 
-        # 3. BACK TO HOME LINK
+        # BACK TO HOME LINK
         self.back_btn = ctk.CTkLabel(
             self, text="[ BACK TO HOME ]",
             font=styles.FONT_ORBITRON_SM,

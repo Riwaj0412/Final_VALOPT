@@ -21,7 +21,6 @@ class DetectedScreen(ctk.CTkFrame):
             self, text="CLICK ANYWHERE TO CONTINUE", font=ux.get_font(18), text_color="white")
         self.sub.pack()
 
-        # Bind clicks to progress to dashboard
         self.bind("<Button-1>", lambda e: self.on_click())
         self.lbl.bind("<Button-1>", lambda e: self.on_click())
         self.sub.bind("<Button-1>", lambda e: self.on_click())

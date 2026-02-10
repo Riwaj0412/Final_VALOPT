@@ -32,7 +32,7 @@ def apply_tactical_style(button):
         border_color=BORDER_COLOR,
         border_width=2,
         # Hover color will change the background of the button
-        hover_color=VALO_RED,  # Changes to VALO Red on hover
+        hover_color=VALO_RED,
         corner_radius=5
     )
     button.configure(hover_color="#ff4655")

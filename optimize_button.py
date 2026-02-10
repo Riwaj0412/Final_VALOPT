@@ -1,6 +1,6 @@
 import customtkinter as ctk
 import styles
-from manual_menu import ManualMenu  # FIXES THE UNDEFINED VARIABLE ERROR
+from manual_menu import ManualMenu
 
 
 def build_optimize_menu(dashboard):
