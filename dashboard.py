@@ -62,7 +62,7 @@ class DashboardHUD(ctk.CTkFrame):
         # 4. SPECS CONTROLS (Back to Home for revealed specs)
         self.specs_controls = ctk.CTkFrame(self, fg_color="transparent")
         self.back_home_btn = ctk.CTkButton(
-            self.specs_controls, text="[ BACK TO HOME ]", font=styles.FONT_ORBITRON_SM,
+            self.specs_controls, text="[ BACK ]", font=styles.FONT_ORBITRON_SM,
             fg_color="transparent", border_width=2, border_color="#ff4655",
             text_color="#ff4655", height=60, width=300, command=lambda: toggle_specs(self)
         )

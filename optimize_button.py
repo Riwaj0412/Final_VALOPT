@@ -58,7 +58,7 @@ def build_optimize_menu(dashboard):
     # Now using a CTkButton with a solid red background to match Specs view
     back_home_btn = ctk.CTkButton(
         dashboard.opt_menu_container,
-        text="[ BACK TO HOME ]",
+        text="[ BACK ]",
         font=styles.FONT_ORBITRON_SM,
         fg_color="#ff4655",         # Solid red background
         hover_color="#ff5f6b",      # Slightly lighter red on hover
@@ -77,7 +77,7 @@ def show_manual_menu(dashboard, selection_frame):
 
     # Locate and hide the solid red back button before loading ManualMenu
     for child in dashboard.opt_menu_container.winfo_children():
-        if isinstance(child, ctk.CTkButton) and child.cget("text") == "[ BACK TO HOME ]":
+        if isinstance(child, ctk.CTkButton) and child.cget("text") == "[ BACK ]":
             child.pack_forget()
 
     # Launch ManualMenu and provide the command to return to this Optimize page
