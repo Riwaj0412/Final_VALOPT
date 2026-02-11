@@ -20,13 +20,11 @@ def get_real_client_fps():
         with open(log_file, "r", errors="ignore") as f:
             content = f.read()
             # Hunt for the specific line: 'AverageFPS: XXX'
-            #
+
             fps_matches = re.findall(r"AverageFPS:\s*(\d+\.?\d*)", content)
 
             if fps_matches:
-                # Get the most recent match from your last session
                 real_avg = int(float(fps_matches[-1]))
-                # Max FPS is usually 20-30% higher than average in Valorant
                 real_max = int(real_avg * 1.25)
                 return real_avg, real_max
     except Exception as e:

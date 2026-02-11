@@ -33,7 +33,6 @@ class InGameMenu(ctk.CTkFrame):
             dropdown_text_color="white",
             dropdown_fg_color="#0f1923",
             dropdown_hover_color="#ff4655",
-            # Apply your Orbitron font to the main box and the list
             font=styles.FONT_ORBITRON_SM,
             dropdown_font=styles.FONT_ORBITRON_SM,
             command=self.update_refresh_dropdown
@@ -53,7 +52,6 @@ class InGameMenu(ctk.CTkFrame):
             dropdown_text_color="white",
             dropdown_fg_color="#0f1923",
             dropdown_hover_color="#ff4655",
-            # Apply your Orbitron font here as well
             font=styles.FONT_ORBITRON_SM,
             dropdown_font=styles.FONT_ORBITRON_SM
         )

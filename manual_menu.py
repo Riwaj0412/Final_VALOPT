@@ -1,7 +1,7 @@
 import customtkinter as ctk
 import styles
 from windows_menu import WindowsMenu
-from ingame_menu import InGameMenu  # Import the new file
+from ingame_menu import InGameMenu
 
 
 class ManualMenu(ctk.CTkFrame):
