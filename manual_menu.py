@@ -6,6 +6,7 @@ class ManualMenu(ctk.CTkFrame):
     def __init__(self, master, back_command):
         super().__init__(master, fg_color="transparent")
 
+        # Title
         self.title_label = ctk.CTkLabel(
             self, text="MANUAL SETTINGS",
             font=styles.FONT_ORBITRON_MD,
@@ -13,30 +14,28 @@ class ManualMenu(ctk.CTkFrame):
         )
         self.title_label.pack(pady=(40, 20))
 
-        # Button Container
         self.button_frame = ctk.CTkFrame(self, fg_color="transparent")
         self.button_frame.pack(expand=True)
 
-        # Tactical buttons with Orbitron and Red Glow
         self.create_tactical_button("NVIDIA Control Panel", "#76B900")
         self.create_tactical_button("WINDOWS", "#808080")
         self.create_tactical_button("IN GAME", "#ff4655")
 
-        # BACK TO HOME LINK
-        self.back_btn = ctk.CTkLabel(
-            self, text="[ BACK TO HOME ]",
+        # --- UNIFIED BACK TO HOME BUTTON ---
+        # Changed from CTkLabel to CTkButton for visual consistency
+        self.back_btn = ctk.CTkButton(
+            self,
+            text="[ BACK TO HOME ]",
             font=styles.FONT_ORBITRON_SM,
-            text_color="#ff4655",
-            cursor="hand2"
+            fg_color="#ff4655",  # Solid Red background
+            text_color="white",
+            height=60,
+            width=300,
+            corner_radius=4,
+            command=lambda: self.on_back(back_command)
         )
+        styles.apply_tactical_style(self.back_btn)
         self.back_btn.pack(side="bottom", pady=40)
-
-        # Hover logic
-        self.back_btn.bind(
-            "<Enter>", lambda e: self.back_btn.configure(text_color="#FF8C94"))
-        self.back_btn.bind(
-            "<Leave>", lambda e: self.back_btn.configure(text_color="#ff4655"))
-        self.back_btn.bind("<Button-1>", lambda e: self.on_back(back_command))
 
     def create_tactical_button(self, text, border_color):
         btn = ctk.CTkButton(
