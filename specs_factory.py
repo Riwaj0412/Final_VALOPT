@@ -10,7 +10,7 @@ def build_specs_grid(parent, node_dict):
         ("SYSTEM MEMORY", "⚡", report['ram']),
         ("GRAPHICS CARD", "🎮", report['gpu']),
         ("DISPLAY MONITOR", "📺", engine.get_monitor_specs()),
-        ("ENGINE STATUS", "🚀", "ACTIVE")
+        ("WINDOWS", "🚀", report['os'])
     ]
 
     parent.grid_columnconfigure((0, 1), weight=1)

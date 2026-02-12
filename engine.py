@@ -37,7 +37,7 @@ def get_exact_gpu_name():
             
     except Exception:
         pass
-    return "Integrated Graphics"
+    return "Integrated Graphics or Unindentified"
 
 def get_system_report():
     report = {
@@ -83,7 +83,7 @@ def get_system_report():
 
 def get_monitor_specs():
     try:
-        # 1. Force DPI Awareness so we get real native resolution
+        # 1. Force DPI Awareness
         ctypes.windll.user32.SetProcessDPIAware()
         width = ctypes.windll.user32.GetSystemMetrics(0)
         height = ctypes.windll.user32.GetSystemMetrics(1)
