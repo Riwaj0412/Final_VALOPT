@@ -115,7 +115,7 @@ def get_monitor_specs():
 
 def check_valorant_presence():
     # Check C, D, and E drives for the live game folder
-    for drive in ['C', 'D', 'E']:
+    for drive in ['C', 'D', 'E','F', 'G', 'H']:
         path = f"{drive}:\\Riot Games\\VALORANT\\live"
         if os.path.exists(path):
             return True
