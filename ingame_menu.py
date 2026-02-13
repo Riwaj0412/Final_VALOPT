@@ -1,6 +1,8 @@
 import customtkinter as ctk
 import valorant_config
 import styles
+import engine
+
 
 class InGameMenu(ctk.CTkFrame):
     def __init__(self, parent, back_command):
@@ -8,42 +10,55 @@ class InGameMenu(ctk.CTkFrame):
         self.pack(fill="both", expand=True)
 
         # Header Section
-        ctk.CTkLabel(self, text="VALOPT", font=styles.FONT_ORBITRON_LG, text_color="#ff4655").pack(pady=(40, 10))
-        ctk.CTkLabel(self, text="VIDEO SETTINGS", font=styles.FONT_ORBITRON_SM, text_color="#ff4655").pack(pady=(0, 40))
+        ctk.CTkLabel(self, text="VALOPT", font=styles.FONT_ORBITRON_LG,
+                     text_color="#ff4655").pack(pady=(40, 10))
+        ctk.CTkLabel(self, text="VIDEO SETTINGS", font=styles.FONT_ORBITRON_SM,
+                     text_color="#ff4655").pack(pady=(0, 40))
 
         self.menu_container = ctk.CTkFrame(self, fg_color="transparent")
         self.menu_container.pack(pady=10)
 
+        # --- DYNAMIC DATA FETCHING ---
+        supported_res = engine.get_supported_resolutions()
+        supported_rates = engine.get_supported_refresh_rates()
+
         # --- RESOLUTION ---
-        ctk.CTkLabel(self.menu_container, text="RESOLUTION", font=styles.FONT_ORBITRON_SM, text_color="white").pack()
+        ctk.CTkLabel(self.menu_container, text="RESOLUTION",
+                     font=styles.FONT_ORBITRON_SM, text_color="white").pack()
         self.res_dropdown = ctk.CTkOptionMenu(
             self.menu_container,
-            values=["1920x1080", "1280x960", "1024x768"],
+            values=supported_res,
             fg_color="#ff4655", button_color="#ff4655", button_hover_color="#d13a45",
             dropdown_fg_color="#0f1923", dropdown_hover_color="#ff4655",
             dropdown_text_color="white",
             font=styles.FONT_ORBITRON_SM,
-            dropdown_font=styles.FONT_ORBITRON_SM, 
+            dropdown_font=styles.FONT_ORBITRON_SM,
             width=250, height=40, corner_radius=0
         )
         self.res_dropdown.pack(pady=(5, 20))
+        # Default to current or highest resolution
+        self.res_dropdown.set(supported_res[0])
 
         # --- REFRESH RATE ---
-        ctk.CTkLabel(self.menu_container, text="REFRESH RATE", font=styles.FONT_ORBITRON_SM, text_color="white").pack()
+        ctk.CTkLabel(self.menu_container, text="REFRESH RATE",
+                     font=styles.FONT_ORBITRON_SM, text_color="white").pack()
         self.refresh_dropdown = ctk.CTkOptionMenu(
             self.menu_container,
-            values=["165Hz", "144Hz", "60Hz"],
+            values=supported_rates,
             fg_color="#ff4655", button_color="#ff4655", button_hover_color="#d13a45",
             dropdown_fg_color="#0f1923", dropdown_hover_color="#ff4655",
             dropdown_text_color="white",
             font=styles.FONT_ORBITRON_SM,
-            dropdown_font=styles.FONT_ORBITRON_SM, 
+            dropdown_font=styles.FONT_ORBITRON_SM,
             width=250, height=40, corner_radius=0
         )
         self.refresh_dropdown.pack(pady=(5, 30))
+        # Default to highest refresh rate
+        self.refresh_dropdown.set(supported_rates[0])
 
         # Status Message
-        self.status_label = ctk.CTkLabel(self.menu_container, text="", font=styles.FONT_ORBITRON_SM)
+        self.status_label = ctk.CTkLabel(
+            self.menu_container, text="", font=styles.FONT_ORBITRON_SM)
         self.status_label.pack(pady=10)
 
         # Apply Button
@@ -67,9 +82,15 @@ class InGameMenu(ctk.CTkFrame):
         try:
             res = self.res_dropdown.get()
             w, h = map(int, res.split('x'))
+
+            # Use the existing valorant_config logic
             result = valorant_config.apply_settings(w, h)
-            
-            color = "#76B900" if "SUCCESS" in result.upper() else "yellow"
-            self.status_label.configure(text=result.upper(), text_color=color)
+
+            if "SUCCESS" in result:
+                self.status_label.configure(
+                    text="SETTINGS APPLIED!", text_color="#00ff7f")
+            else:
+                self.status_label.configure(text=result, text_color="#ff4655")
         except Exception as e:
-            self.status_label.configure(text=f"ERROR: {str(e)[:20]}", text_color="red")
+            self.status_label.configure(
+                text=f"ERROR: {e}", text_color="#ff4655")
