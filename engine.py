@@ -3,9 +3,10 @@ import sys
 import ctypes
 import winreg
 import subprocess
+import psutil
+import platform
 
 # Windows API structures for display settings
-
 
 class DEVMODE(ctypes.Structure):
     _fields_ = [("dmDeviceName", ctypes.c_wchar * 32),
@@ -68,7 +69,6 @@ def get_exact_gpu_name():
 
 
 def get_supported_resolutions():
-    """Fetches all valid resolutions supported by the primary monitor."""
     resolutions = set()
     dm = DEVMODE()
     i = 0
@@ -82,7 +82,6 @@ def get_supported_resolutions():
 
 
 def get_supported_refresh_rates():
-    """Fetches all valid refresh rates supported by the primary monitor."""
     rates = set()
     dm = DEVMODE()
     i = 0
@@ -107,8 +106,6 @@ def get_monitor_specs():
 
 
 def get_system_report():
-    import psutil
-    import platform
     return {
         'cpu': platform.processor() or "AMD Ryzen / Intel Core",
         'ram': f"{round(psutil.virtual_memory().total / (1024**3))} GB DDR4/DDR5",
