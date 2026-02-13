@@ -11,7 +11,7 @@ class SplashScreen(ctk.CTkFrame):
         self.place(relx=0, rely=0, relwidth=1, relheight=1)
 
         # UI Setup
-        ctk.CTkLabel(self, text="VALOPT // PRO", font=ux.get_font(50),
+        ctk.CTkLabel(self, text="VALOPT", font=ux.get_font(50),
                      text_color="#ff4655").pack(pady=(250, 20))
         self.status_label = ctk.CTkLabel(
             self,
