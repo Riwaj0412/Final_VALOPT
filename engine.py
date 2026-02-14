@@ -51,7 +51,6 @@ def get_registry_value(path, name):
 
 
 def get_clean_cpu_name():
-    """Queries the Windows Registry for the precise marketing name of the CPU."""
     try:
         path = r"HARDWARE\DESCRIPTION\System\CentralProcessor\0"
         reg_key = winreg.OpenKey(winreg.HKEY_LOCAL_MACHINE, path)
@@ -85,7 +84,6 @@ def get_exact_gpu_name():
 
 
 def get_supported_resolutions():
-    """Fetches all valid resolutions supported by the primary monitor."""
     resolutions = set()
     dm = DEVMODE()
     i = 0
@@ -97,7 +95,6 @@ def get_supported_resolutions():
 
 
 def get_supported_refresh_rates():
-    """Fetches all valid refresh rates supported by the primary monitor."""
     rates = set()
     dm = DEVMODE()
     i = 0
@@ -129,7 +126,6 @@ def check_valorant_presence():
 
 
 def get_system_report():
-    """Compiles all gathered hardware information into a clean dictionary."""
     return {
         'cpu': get_clean_cpu_name(),
         'ram': f"{round(psutil.virtual_memory().total / (1024**3))} GB",

@@ -51,5 +51,4 @@ class SplashScreen(ctk.CTkFrame):
         if self.data is not None:
             self.callback(self.data)
         else:
-            # If hardware is still thinking, wait 100ms and check again
             self.after(100, self.check_completion)

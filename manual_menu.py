@@ -4,7 +4,7 @@ import os
 import subprocess
 from windows_menu import WindowsMenu
 from ingame_menu import InGameMenu
-from network_menu import NetworkMenu  # Import the new network menu
+from network_menu import NetworkMenu
 
 
 class ManualMenu(ctk.CTkFrame):
@@ -31,7 +31,7 @@ class ManualMenu(ctk.CTkFrame):
         self.create_tactical_button(
             "WINDOWS", "#808080", command=self.show_windows_submenu)
 
-        # NEW NETWORK BUTTON - Styled to match others
+        # NETWORK BUTTON
         self.create_tactical_button(
             "NETWORK", "#3d799d", command=self.show_network_submenu)
 
@@ -49,7 +49,6 @@ class ManualMenu(ctk.CTkFrame):
         self.current_submenu = None
 
     def open_nvidia_panel(self):
-        """Attempts to open NVIDIA Control Panel using common paths"""
         paths = [
             r"C:\Program Files\NVIDIA Corporation\Control Panel Client\nvcplui.exe",
             r"C:\Windows\System32\nvcplui.exe"
@@ -86,7 +85,7 @@ class ManualMenu(ctk.CTkFrame):
         self.current_submenu = InGameMenu(self, self.restore_manual_menu)
         self.current_submenu.pack(fill="both", expand=True)
 
-    # NEW: Logic to show the Network Menu
+    # Logic to show the Network Menu
     def show_network_submenu(self):
         self.hide_main_content()
         self.current_submenu = NetworkMenu(self, self.restore_manual_menu)

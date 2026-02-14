@@ -1,17 +1,14 @@
 import customtkinter as ctk
 import styles
-# Essential to prevent "Undefined Variable" error
 from manual_menu import ManualMenu
 
 
 def build_optimize_menu(dashboard):
-    # Clear any previous content from the container
     for child in dashboard.opt_menu_container.winfo_children():
         child.destroy()
 
     dashboard.opt_menu_container.pack(fill="both", expand=True)
 
-    # Main horizontal layout frame for the two options
     selection_frame = ctk.CTkFrame(
         dashboard.opt_menu_container, fg_color="transparent")
     selection_frame.pack(expand=True)
@@ -20,7 +17,7 @@ def build_optimize_menu(dashboard):
     manual_btn = ctk.CTkButton(
         selection_frame,
         text="MANUAL",
-        font=styles.FONT_ORBITRON_MD,  # Corrected Orbitron font
+        font=styles.FONT_ORBITRON_MD,
         width=380,
         height=250,
         fg_color="transparent",
@@ -55,13 +52,12 @@ def build_optimize_menu(dashboard):
     rec_btn.pack(side="left", padx=20)
 
     # --- UNIFIED BACK TO HOME BUTTON ---
-    # Now using a CTkButton with a solid red background to match Specs view
     back_home_btn = ctk.CTkButton(
         dashboard.opt_menu_container,
         text="[ BACK ]",
         font=styles.FONT_ORBITRON_SM,
-        fg_color="#ff4655",         # Solid red background
-        hover_color="#ff5f6b",      # Slightly lighter red on hover
+        fg_color="#ff4655",
+        hover_color="#ff5f6b",
         text_color="white",
         height=60,
         width=300,
@@ -75,12 +71,10 @@ def show_manual_menu(dashboard, selection_frame):
     """Hides selection and launches the manual sub-menu"""
     selection_frame.pack_forget()
 
-    # Locate and hide the solid red back button before loading ManualMenu
     for child in dashboard.opt_menu_container.winfo_children():
         if isinstance(child, ctk.CTkButton) and child.cget("text") == "[ BACK ]":
             child.pack_forget()
 
-    # Launch ManualMenu and provide the command to return to this Optimize page
     m_menu = ManualMenu(dashboard.opt_menu_container,
                         lambda: build_optimize_menu(dashboard))
     m_menu.pack(fill="both", expand=True)
