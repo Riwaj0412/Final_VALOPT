@@ -3,6 +3,7 @@ import re
 import os
 import socket
 import time
+from tkinter import messagebox
 
 SERVER_IPS = {
     "MUMBAI": "13.126.0.252",
@@ -51,9 +52,12 @@ def get_latency(city_name):
 
 def flush_dns():
     try:
-        subprocess.Popen("ipconfig /flushdns", shell=True)
+        subprocess.check_output("ipconfig /flushdns", shell=True)
+        messagebox.showinfo(
+            "VALOPT NETWORK", "DNS Cache Flushed Successfully!")
         return True
-    except:
+    except Exception as e:
+        messagebox.showerror("VALOPT ERROR", f"Failed to flush DNS:\n{e}")
         return False
 
 

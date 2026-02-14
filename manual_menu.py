@@ -1,7 +1,7 @@
 import customtkinter as ctk
 import styles
 import os
-import subprocess
+from tkinter import messagebox
 from windows_menu import WindowsMenu
 from ingame_menu import InGameMenu
 from network_menu import NetworkMenu
@@ -24,9 +24,8 @@ class ManualMenu(ctk.CTkFrame):
         self.button_frame = ctk.CTkFrame(self, fg_color="transparent")
         self.button_frame.pack(expand=True)
 
-        # Main Buttons
         self.create_tactical_button(
-            "NVIDIA Control Panel", "#76B900", self.open_nvidia_panel)
+            "NVIDIA Control Panel", "#76B900", self.show_placeholder_msg)
 
         self.create_tactical_button(
             "WINDOWS", "#808080", command=self.show_windows_submenu)
@@ -36,35 +35,11 @@ class ManualMenu(ctk.CTkFrame):
             "NETWORK", "#3d799d", command=self.show_network_submenu)
 
         self.create_tactical_button(
-            "IN GAME", "#ff4655", command=self.show_ingame_submenu)
+            "[ BACK ]", "#ff4655", command=self.back_command)
 
-        # Global [ BACK ] Button
-        self.back_btn = ctk.CTkButton(
-            self, text="[ BACK ]", font=styles.FONT_ORBITRON_SM,
-            fg_color="#ff4655", hover_color="#d13a45", corner_radius=4,
-            width=280, height=50, command=back_command
-        )
-        self.back_btn.pack(side="bottom", pady=40)
-
-        self.current_submenu = None
-
-    def open_nvidia_panel(self):
-        paths = [
-            r"C:\Program Files\NVIDIA Corporation\Control Panel Client\nvcplui.exe",
-            r"C:\Windows\System32\nvcplui.exe"
-        ]
-        found = False
-        for p in paths:
-            if os.path.exists(p):
-                subprocess.Popen(p)
-                found = True
-                break
-
-        if not found:
-            try:
-                subprocess.Popen("start nvcplui.exe", shell=True)
-            except:
-                print("NVIDIA Control Panel not found on this system.")
+    def show_placeholder_msg(self):
+        """Temporary placeholder to avoid system errors while testing other features"""
+        messagebox.showinfo("VALOPT", "Working on this feature")
 
     def create_tactical_button(self, text, border_color, command):
         btn = ctk.CTkButton(
@@ -80,12 +55,6 @@ class ManualMenu(ctk.CTkFrame):
         self.current_submenu = WindowsMenu(self, self.restore_manual_menu)
         self.current_submenu.pack(fill="both", expand=True)
 
-    def show_ingame_submenu(self):
-        self.hide_main_content()
-        self.current_submenu = InGameMenu(self, self.restore_manual_menu)
-        self.current_submenu.pack(fill="both", expand=True)
-
-    # Logic to show the Network Menu
     def show_network_submenu(self):
         self.hide_main_content()
         self.current_submenu = NetworkMenu(self, self.restore_manual_menu)
@@ -94,11 +63,9 @@ class ManualMenu(ctk.CTkFrame):
     def hide_main_content(self):
         self.button_frame.pack_forget()
         self.title_label.pack_forget()
-        self.back_btn.pack_forget()
 
     def restore_manual_menu(self):
-        if self.current_submenu:
-            self.current_submenu.destroy()
+        if hasattr(self, 'current_submenu'):
+            self.current_submenu.pack_forget()
         self.title_label.pack(pady=(40, 20))
         self.button_frame.pack(expand=True)
-        self.back_btn.pack(side="bottom", pady=40)
