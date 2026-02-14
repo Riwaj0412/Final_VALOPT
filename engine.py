@@ -132,7 +132,7 @@ def get_system_report():
     """Compiles all gathered hardware information into a clean dictionary."""
     return {
         'cpu': get_clean_cpu_name(),
-        'ram': f"{round(psutil.virtual_memory().total / (1024**3))} GB DDR4/DDR5",
+        'ram': f"{round(psutil.virtual_memory().total / (1024**3))} GB",
         'gpu': get_exact_gpu_name(),
         'os': f"Windows {platform.release()}",
         'display': get_monitor_specs(),

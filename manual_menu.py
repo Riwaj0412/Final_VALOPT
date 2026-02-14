@@ -4,6 +4,7 @@ import os
 import subprocess
 from windows_menu import WindowsMenu
 from ingame_menu import InGameMenu
+from network_menu import NetworkMenu  # Import the new network menu
 
 
 class ManualMenu(ctk.CTkFrame):
@@ -23,38 +24,44 @@ class ManualMenu(ctk.CTkFrame):
         self.button_frame = ctk.CTkFrame(self, fg_color="transparent")
         self.button_frame.pack(expand=True)
 
-        # Main Buttons - Now with NVIDIA Logic
+        # Main Buttons
         self.create_tactical_button(
             "NVIDIA Control Panel", "#76B900", self.open_nvidia_panel)
+
         self.create_tactical_button(
             "WINDOWS", "#808080", command=self.show_windows_submenu)
+
+        # NEW NETWORK BUTTON - Styled to match others
+        self.create_tactical_button(
+            "NETWORK", "#3d799d", command=self.show_network_submenu)
+
         self.create_tactical_button(
             "IN GAME", "#ff4655", command=self.show_ingame_submenu)
 
         # Global [ BACK ] Button
         self.back_btn = ctk.CTkButton(
             self, text="[ BACK ]", font=styles.FONT_ORBITRON_SM,
-            fg_color="#ff4655", text_color="white", height=60, width=300,
-            corner_radius=4, command=back_command
+            fg_color="#ff4655", hover_color="#d13a45", corner_radius=4,
+            width=280, height=50, command=back_command
         )
         self.back_btn.pack(side="bottom", pady=40)
 
+        self.current_submenu = None
+
     def open_nvidia_panel(self):
-        """Attempts to launch the NVIDIA Control Panel executable."""
+        """Attempts to open NVIDIA Control Panel using common paths"""
         paths = [
             r"C:\Program Files\NVIDIA Corporation\Control Panel Client\nvcplui.exe",
             r"C:\Windows\System32\nvcplui.exe"
         ]
-
         found = False
-        for path in paths:
-            if os.path.exists(path):
-                subprocess.Popen([path])
+        for p in paths:
+            if os.path.exists(p):
+                subprocess.Popen(p)
                 found = True
                 break
 
         if not found:
-            # If the .exe isn't found, try the shell command which sometimes works for DCH drivers
             try:
                 subprocess.Popen("start nvcplui.exe", shell=True)
             except:
@@ -79,13 +86,19 @@ class ManualMenu(ctk.CTkFrame):
         self.current_submenu = InGameMenu(self, self.restore_manual_menu)
         self.current_submenu.pack(fill="both", expand=True)
 
+    # NEW: Logic to show the Network Menu
+    def show_network_submenu(self):
+        self.hide_main_content()
+        self.current_submenu = NetworkMenu(self, self.restore_manual_menu)
+        self.current_submenu.pack(fill="both", expand=True)
+
     def hide_main_content(self):
         self.button_frame.pack_forget()
         self.title_label.pack_forget()
         self.back_btn.pack_forget()
 
     def restore_manual_menu(self):
-        if hasattr(self, 'current_submenu'):
+        if self.current_submenu:
             self.current_submenu.destroy()
         self.title_label.pack(pady=(40, 20))
         self.button_frame.pack(expand=True)
