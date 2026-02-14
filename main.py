@@ -11,7 +11,7 @@ class ValOptApp(ctk.CTk):
     def __init__(self):
         super().__init__()
         self.title("VALOPT")
-        ux.center_window(self, 1000, 850)
+        ux.center_window(self, 1000, 900)
         self.resizable(False, False)
 
         self.stored_data = {}
