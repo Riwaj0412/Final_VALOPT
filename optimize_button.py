@@ -81,6 +81,4 @@ def show_manual_menu(dashboard, selection_frame):
 
 
 def return_to_dashboard(dashboard):
-    """Returns to the main dashboard screen"""
-    dashboard.opt_menu_container.pack_forget()
-    dashboard.home_controls.pack(expand=True)
+    dashboard.show_home()

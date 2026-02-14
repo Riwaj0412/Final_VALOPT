@@ -1,29 +1,37 @@
 import subprocess
 import os
 
+
 def is_valorant_running():
     try:
-        system32 = os.path.join(os.environ.get('SystemRoot', 'C:\\Windows'), 'System32', 'tasklist.exe')
+        system32 = os.path.join(os.environ.get(
+            'SystemRoot', 'C:\\Windows'), 'System32', 'tasklist.exe')
         cmd = system32 if os.path.exists(system32) else "tasklist"
-        output = subprocess.check_output(f'"{cmd}" /FI "IMAGENAME eq VALORANT-Win64-Shipping.exe"', shell=True).decode('utf-8', errors='ignore')
+        output = subprocess.check_output(
+            f'"{cmd}" /FI "IMAGENAME eq VALORANT-Win64-Shipping.exe"', shell=True).decode('utf-8', errors='ignore')
         return "VALORANT-Win64-Shipping.exe" in output
     except:
         return False
 
+
 def get_config_path():
     # Improved search for the specific Riot user folder
     local_appdata = os.environ.get('LOCALAPPDATA')
-    if not local_appdata: return None
-    
+    if not local_appdata:
+        return None
+
     config_root = os.path.join(local_appdata, 'VALORANT', 'Saved', 'Config')
-    if not os.path.exists(config_root): return None
+    if not os.path.exists(config_root):
+        return None
 
     # Valorant uses random-string folder names; we search all of them for the Windows folder
     for folder in os.listdir(config_root):
-        path = os.path.join(config_root, folder, 'Windows', 'GameUserSettings.ini')
+        path = os.path.join(config_root, folder, 'Windows',
+                            'GameUserSettings.ini')
         if os.path.exists(path):
             return path
     return None
+
 
 def apply_settings(width, height):
     if is_valorant_running():
@@ -59,6 +67,7 @@ def apply_settings(width, height):
         return "SUCCESS: SETTINGS APPLIED"
     except Exception as e:
         return f"ERROR: {str(e)}"
+
 
 def get_refresh_rates_for_res(res_str):
     return ["165Hz", "144Hz", "120Hz", "60Hz"]
