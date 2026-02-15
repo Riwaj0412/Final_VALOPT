@@ -56,8 +56,6 @@ def get_clean_cpu_name():
         reg_key = winreg.OpenKey(winreg.HKEY_LOCAL_MACHINE, path)
         cpu_name, _ = winreg.QueryValueEx(reg_key, "ProcessorNameString")
         winreg.CloseKey(reg_key)
-
-        # Remove TM/R symbols and extra whitespace for a cleaner UI
         return cpu_name.replace("(TM)", "").replace("(R)", "").strip()
     except Exception:
         # Fallback if registry access is restricted

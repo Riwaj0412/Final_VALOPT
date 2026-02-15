@@ -1,96 +1,62 @@
 import customtkinter as ctk
-import valorant_config
 import styles
-import engine
+import session_logger
+import valorant_config
 
 
 class InGameMenu(ctk.CTkFrame):
-    def __init__(self, parent, back_command):
-        super().__init__(parent, fg_color="#0f1923")
-        self.pack(fill="both", expand=True)
+    def __init__(self, master, back_command):
+        super().__init__(master, fg_color="transparent")
+        self.back_command = back_command
 
-        # Header Section
-        ctk.CTkLabel(self, text="VALOPT", font=styles.FONT_ORBITRON_LG,
-                     text_color="#ff4655").pack(pady=(40, 10))
-        ctk.CTkLabel(self, text="VIDEO SETTINGS", font=styles.FONT_ORBITRON_SM,
-                     text_color="#ff4655").pack(pady=(0, 40))
+        ctk.CTkLabel(self, text="IN-GAME OPTIMIZATION",
+                     font=styles.FONT_ORBITRON_MD, text_color="#ff4655").pack(pady=(40, 20))
 
-        self.menu_container = ctk.CTkFrame(self, fg_color="transparent")
-        self.menu_container.pack(pady=10)
+        self.container = ctk.CTkFrame(self, fg_color="transparent")
+        self.container.pack(expand=True)
 
-        # --- DYNAMIC DATA FETCHING ---
-        supported_res = engine.get_supported_resolutions()
-        supported_rates = engine.get_supported_refresh_rates()
+        # Resolution Selection
+        ctk.CTkLabel(self.container, text="SELECT RESOLUTION",
+                     font=styles.FONT_ORBITRON_SM, text_color="white").pack(pady=5)
 
-        # --- RESOLUTION ---
-        ctk.CTkLabel(self.menu_container, text="RESOLUTION",
-                     font=styles.FONT_ORBITRON_SM, text_color="white").pack()
-        self.res_dropdown = ctk.CTkOptionMenu(
-            self.menu_container,
-            values=supported_res,
-            fg_color="#ff4655", button_color="#ff4655", button_hover_color="#d13a45",
-            dropdown_fg_color="#0f1923", dropdown_hover_color="#ff4655",
-            dropdown_text_color="white",
-            font=styles.FONT_ORBITRON_SM,
-            dropdown_font=styles.FONT_ORBITRON_SM,
-            width=250, height=40, corner_radius=0
-        )
-        self.res_dropdown.pack(pady=(5, 20))
-        # Default to current or highest resolution
-        self.res_dropdown.set(supported_res[0])
-
-        # --- REFRESH RATE ---
-        ctk.CTkLabel(self.menu_container, text="REFRESH RATE",
-                     font=styles.FONT_ORBITRON_SM, text_color="white").pack()
-        self.refresh_dropdown = ctk.CTkOptionMenu(
-            self.menu_container,
-            values=supported_rates,
-            fg_color="#ff4655", button_color="#ff4655", button_hover_color="#d13a45",
-            dropdown_fg_color="#0f1923", dropdown_hover_color="#ff4655",
-            dropdown_text_color="white",
-            font=styles.FONT_ORBITRON_SM,
-            dropdown_font=styles.FONT_ORBITRON_SM,
-            width=250, height=40, corner_radius=0
-        )
-        self.refresh_dropdown.pack(pady=(5, 30))
-        # Default to highest refresh rate
-        self.refresh_dropdown.set(supported_rates[0])
-
-        # Status Message
-        self.status_label = ctk.CTkLabel(
-            self.menu_container, text="", font=styles.FONT_ORBITRON_SM)
-        self.status_label.pack(pady=10)
+        self.res_dropdown = ctk.CTkComboBox(self.container,
+                                            values=["1920x1080", "1600x900",
+                                                    "1280x720", "1024x768"],
+                                            font=styles.FONT_ORBITRON_SM, width=300, height=40)
+        self.res_dropdown.pack(pady=10)
 
         # Apply Button
-        self.apply_btn = ctk.CTkButton(
-            self.menu_container, text="CONFIRM SETTINGS",
-            fg_color="#ff4655", hover_color="#d13a45",
-            font=styles.FONT_ORBITRON_SM, width=350, height=50, corner_radius=0,
-            command=self.handle_apply
-        )
-        self.apply_btn.pack(pady=10)
+        self.apply_btn = ctk.CTkButton(self.container, text="[ APPLY SETTINGS ]",
+                                       font=styles.FONT_ORBITRON_SM,
+                                       width=300, height=60, command=self.handle_apply)
+        styles.apply_tactical_style(self.apply_btn)
+        self.apply_btn.pack(pady=20)
+
+        self.status_label = ctk.CTkLabel(
+            self.container, text="", font=styles.FONT_ORBITRON_SM)
+        self.status_label.pack(pady=10)
 
         # Back Button
-        self.back_btn = ctk.CTkButton(
-            self, text="[ BACK ]", font=styles.FONT_ORBITRON_SM,
-            fg_color="#ff4655", hover_color="#d13a45", corner_radius=4,
-            width=280, height=50, command=back_command
-        )
+        self.back_btn = ctk.CTkButton(self, text="[ BACK ]", font=styles.FONT_ORBITRON_SM,
+                                      fg_color="#ff4655", height=60, width=300,
+                                      command=self.back_command)
         self.back_btn.pack(side="bottom", pady=40)
 
     def handle_apply(self):
         try:
             res = self.res_dropdown.get()
             w, h = map(int, res.split('x'))
-
-            # Use the existing valorant_config logic
             result = valorant_config.apply_settings(w, h)
 
             if "SUCCESS" in result:
+                session_logger.add_log(f"Display: Applied Resolution {res}")
                 self.status_label.configure(
                     text="SETTINGS APPLIED!", text_color="#00ff7f")
             else:
-                self.status_label.configure(text=result, text_color="#ff4655")
+                self.status_label.configure(
+                    text=f"FAILED: {result}", text_color="#ff4655")
+
         except Exception as e:
             self.status_label.configure(
-                text=f"ERROR: {e}", text_color="#ff4655")
+                text=f"ERROR: {str(e)}", text_color="#ff4655")
+            session_logger.add_log(f"Display Error: {str(e)}", "FAILED")

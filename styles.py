@@ -19,14 +19,12 @@ if os.path.exists(FONT_PATH):
     FONT_ORBITRON_MD = ("Orbitron", 28, "bold")
     FONT_ORBITRON_SM = ("Orbitron", 20)
 else:
-    # Fallback so the app doesn't crash if the file is moved
     FONT_ORBITRON_LG = ("Impact", 80)
     FONT_ORBITRON_MD = ("Arial", 28, "bold")
     FONT_ORBITRON_SM = ("Arial", 20)
 
 
 def play_click_sound():
-    # Frequency: 800Hz (sharp), Duration: 50ms (very quick)
     winsound.Beep(800, 50)
 
 
@@ -37,7 +35,6 @@ def apply_tactical_style(button):
         text_color=TEXT_MAIN,
         border_color=BORDER_COLOR,
         border_width=2,
-        # Hover color will change the background of the button
         hover_color=VALO_RED,
         corner_radius=5
     )

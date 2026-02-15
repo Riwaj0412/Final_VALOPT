@@ -4,6 +4,8 @@ import os
 import socket
 import time
 from tkinter import messagebox
+import webbrowser
+import session_logger
 
 SERVER_IPS = {
     "MUMBAI": "13.126.0.252",
@@ -66,11 +68,14 @@ def open_advanced_display():
         subprocess.Popen("start ms-settings:display", shell=True)
     except Exception as e:
         print(f"Error: {e}")
+    session_logger.add_log("Windows: Accessed Display/Resolution Settings")
 
 
 def open_hags_settings():
     subprocess.Popen("start ms-settings:display-advancedgraphics", shell=True)
+    session_logger.add_log("Windows: Accessed HAGS Settings")
 
 
 def open_gamebar_settings():
     subprocess.Popen("start ms-settings:gaming-gamemode", shell=True)
+    session_logger.add_log("Windows: Accessed Game Bar Settings")

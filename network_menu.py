@@ -4,6 +4,8 @@ import threading
 import time
 import socket
 import platform
+import session_logger
+import subprocess
 
 
 class NetworkMenu(ctk.CTkFrame):
@@ -12,7 +14,6 @@ class NetworkMenu(ctk.CTkFrame):
         self.back_command = back_command
         self.stop_thread = False
 
-        # EXPANDED REGIONS: Added LATAM, Brazil, Korea, and Middle East
         self.regions = {
             "ASIA-PACIFIC": {
                 "Mumbai": ("13.126.0.1", 80),
@@ -154,9 +155,11 @@ class NetworkMenu(ctk.CTkFrame):
             b.pack(pady=10)
 
     def run_flush_dns(self):
-        import subprocess
         subprocess.run("ipconfig /flushdns", shell=True,
                        creationflags=0x08000000)
+
+        session_logger.add_log("Network: DNS Cache Purged")
+
         self.title_label.configure(text="DNS PURGED", text_color="white")
         self.after(2000, lambda: self.title_label.configure(
             text="NETWORK OPTIMIZATION", text_color="#ff4655"))

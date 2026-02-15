@@ -1,13 +1,14 @@
 import subprocess
-import winsound
+import session_logger
 
 
 def set_max_power():
+    """Activates High Performance mode and logs the event."""
     try:
-        # Standard GUID for 'High Performance'
+        # High Performance GUID
         guid = "8c5e7fda-e8bf-4a96-9a85-a6e23a8c635c"
 
-        # creationflags=0x08000000 prevents the CMD window from flashing
+        # Run the command silently
         subprocess.run(
             f"powercfg /setactive {guid}",
             shell=True,
@@ -15,13 +16,11 @@ def set_max_power():
             creationflags=0x08000000
         )
 
-        # --- SOUND ARMED: Heavy Tech Thud ---
-        # Frequency: 400Hz, Duration: 150ms
-        winsound.Beep(400, 150)
-
+        # --- CRITICAL: Log the success ---
+        session_logger.add_log("Power Plan: High Performance Activated")
         return True
+
     except Exception as e:
-        print(f"Power Plan Error: {e}")
-        # --- ERROR SOUND: Low Jarring Tone ---
-        winsound.Beep(200, 400)
+        # --- CRITICAL: Log the failure ---
+        session_logger.add_log(f"Power Plan Error: {str(e)}", "FAILED")
         return False

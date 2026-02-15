@@ -3,6 +3,7 @@ import styles
 import optimize_button
 from home_menu import HomeMenu
 from specs_menu import SpecsMenu
+from log_menu import LogMenu
 
 
 class DashboardHUD(ctk.CTkFrame):
@@ -11,19 +12,23 @@ class DashboardHUD(ctk.CTkFrame):
         self.place(relx=0, rely=0, relwidth=1, relheight=1)
         self.master_app = master_app
 
+        # Main Title Header
         ctk.CTkLabel(self, text="V A L O P T", font=styles.FONT_ORBITRON_LG,
                      text_color="#ff4655").pack(pady=(60, 20))
 
+        # Dynamic content area where menus are swapped
         self.content_area = ctk.CTkFrame(self, fg_color="transparent")
         self.content_area.pack(fill="both", expand=True)
 
+        # Start on the Home Menu
         self.show_home()
 
     def show_home(self):
         for child in self.content_area.winfo_children():
             child.destroy()
+        # Added self.show_logs to the parameters passed to HomeMenu
         HomeMenu(self.content_area, self.show_specs, self.show_optimize,
-                 self.master_app).pack(fill="both", expand=True)
+                 self.show_logs, self.master_app).pack(fill="both", expand=True)
 
     def show_specs(self):
         for child in self.content_area.winfo_children():
@@ -36,3 +41,9 @@ class DashboardHUD(ctk.CTkFrame):
             child.destroy()
         self.opt_menu_container = self.content_area
         optimize_button.build_optimize_menu(self)
+
+    def show_logs(self):
+        for child in self.content_area.winfo_children():
+            child.destroy()
+        LogMenu(self.content_area, self.show_home).pack(
+            fill="both", expand=True)
