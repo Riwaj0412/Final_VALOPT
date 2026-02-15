@@ -13,7 +13,6 @@ class ManualMenu(ctk.CTkFrame):
         self.master = master
         self.back_command = back_command
 
-        # Main Title
         self.title_label = ctk.CTkLabel(
             self, text="MANUAL SETTINGS",
             font=styles.FONT_ORBITRON_MD,
@@ -21,7 +20,6 @@ class ManualMenu(ctk.CTkFrame):
         )
         self.title_label.pack(pady=(40, 20))
 
-        # Container for the list buttons
         self.button_frame = ctk.CTkFrame(self, fg_color="transparent")
         self.button_frame.pack(expand=True, fill="x", padx=50)
 
@@ -41,7 +39,7 @@ class ManualMenu(ctk.CTkFrame):
         self.create_tactical_button(
             "NETWORK", "#3d799d", command=self.show_network_submenu)
 
-        # 5. BACK BUTTON (Solid Block Style from optimize_button.py)
+        # 5. BACK BUTTON
         self.back_btn = ctk.CTkButton(
             self,
             text="[ BACK ]",
@@ -62,12 +60,11 @@ class ManualMenu(ctk.CTkFrame):
         btn = ctk.CTkButton(
             self.button_frame,
             text=text,
-            # Using MD font to match the weight of the main menu buttons
             font=styles.FONT_ORBITRON_MD,
             width=500,
-            height=70,  # Adjusted height for better text centering
+            height=70,
             fg_color="transparent",
-            border_width=1,  # Matching the thin border of Manual/Recommended
+            border_width=1,
             border_color=border_color,
             text_color="white",
             command=command

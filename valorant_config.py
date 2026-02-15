@@ -15,7 +15,6 @@ def is_valorant_running():
 
 
 def get_config_path():
-    # Improved search for the specific Riot user folder
     local_appdata = os.environ.get('LOCALAPPDATA')
     if not local_appdata:
         return None

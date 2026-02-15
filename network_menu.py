@@ -130,7 +130,7 @@ class NetworkMenu(ctk.CTkFrame):
         try:
             start = time.perf_counter()
             s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-            s.settimeout(1.0)  # Slightly increased for international routes
+            s.settimeout(1.0)
             s.connect((ip, port))
             s.close()
             return int((time.perf_counter() - start) * 1000)
@@ -155,7 +155,6 @@ class NetworkMenu(ctk.CTkFrame):
 
     def run_flush_dns(self):
         import subprocess
-        # creationflags=0x08000000 prevents console window from popping up on Windows
         subprocess.run("ipconfig /flushdns", shell=True,
                        creationflags=0x08000000)
         self.title_label.configure(text="DNS PURGED", text_color="white")

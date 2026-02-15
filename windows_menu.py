@@ -1,6 +1,7 @@
 import customtkinter as ctk
 import styles
 import windows_button
+import power_plan
 
 
 class WindowsMenu(ctk.CTkFrame):
@@ -25,12 +26,26 @@ class WindowsMenu(ctk.CTkFrame):
         self.create_sub_button("GAME BAR", "#808080",
                                windows_button.open_gamebar_settings)
 
-        # 3. ADVANCED DISPLAY SETTINGS (Updated Logic)
+        # 3. ADVANCED DISPLAY SETTINGS
         self.create_sub_button(
             "ADVANCED DISPLAY SETTINGS",
             "#ff4655",
             windows_button.open_advanced_display
         )
+
+        # 4. MAXIMUM POWER PLAN
+        self.create_sub_button(
+            "MAXIMUM POWER PLAN",
+            "#3d799d",
+            self.handle_power_plan
+        )
+
+        # Internal Status Message Label
+        self.status_label = ctk.CTkLabel(
+            self, text="",
+            font=styles.FONT_ORBITRON_SM
+        )
+        self.status_label.pack(pady=10)
 
         # Back Button
         self.back_btn = ctk.CTkButton(
@@ -42,13 +57,35 @@ class WindowsMenu(ctk.CTkFrame):
 
     def create_sub_button(self, text, border_color, command):
         btn = ctk.CTkButton(
-            self.button_frame, text=text, font=styles.FONT_ORBITRON_MD,
-            width=600, height=70, fg_color="transparent", border_width=2,
-            border_color=border_color, text_color="white", command=command
+            self.button_frame, text=text,
+            font=styles.FONT_ORBITRON_SM,
+            width=500, height=60,
+            fg_color="transparent",
+            border_width=1,
+            border_color=border_color,
+            text_color="white",
+            command=command
         )
         styles.apply_tactical_style(btn)
         btn.pack(pady=10)
 
+    def handle_power_plan(self):
+        """Triggers the logic and provides visual/audio feedback"""
+        success = power_plan.set_max_power()
+        if success:
+            self.status_label.configure(
+                text=">> SYSTEM ARMED: POWER MAXIMIZED",
+                text_color="#00ff7f"  # Success Green
+            )
+        else:
+            self.status_label.configure(
+                text=">> ERROR: OVERRIDE FAILED",
+                text_color="#ff4655"  # Error Red
+            )
+
+        # Clear the message after 3 seconds
+        self.after(3000, lambda: self.status_label.configure(text=""))
+
     def on_back(self, back_command):
-        self.destroy()
+        self.pack_forget()
         back_command()

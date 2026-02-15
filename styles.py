@@ -1,5 +1,6 @@
 import customtkinter as ctk
 import os
+import winsound
 
 FONT_PATH = os.path.join(os.path.dirname(
     __file__), "assets", "Orbitron-Regular.ttf")
@@ -22,6 +23,11 @@ else:
     FONT_ORBITRON_LG = ("Impact", 80)
     FONT_ORBITRON_MD = ("Arial", 28, "bold")
     FONT_ORBITRON_SM = ("Arial", 20)
+
+
+def play_click_sound():
+    # Frequency: 800Hz (sharp), Duration: 50ms (very quick)
+    winsound.Beep(800, 50)
 
 
 def apply_tactical_style(button):
