@@ -17,7 +17,7 @@ def build_optimize_menu(dashboard):
     manual_btn = ctk.CTkButton(
         selection_frame,
         text="MANUAL",
-        font=styles.FONT_ORBITRON_MD,
+        font=("Orbitron", 50, "bold"),
         width=380,
         height=250,
         fg_color="transparent",
@@ -40,7 +40,7 @@ def build_optimize_menu(dashboard):
     rec_btn = ctk.CTkButton(
         selection_frame,
         text="RECOMMENDED",
-        font=styles.FONT_ORBITRON_MD,
+        font=("Orbitron", 50, "bold"),
         width=380,
         height=250,
         fg_color="transparent",
@@ -54,7 +54,7 @@ def build_optimize_menu(dashboard):
     # --- UNIFIED BACK TO HOME BUTTON ---
     back_home_btn = ctk.CTkButton(
         dashboard.opt_menu_container,
-        text="[ BACK ]",
+        text="BACK",
         font=styles.FONT_ORBITRON_SM,
         fg_color="#ff4655",
         hover_color="#ff5f6b",
@@ -68,11 +68,10 @@ def build_optimize_menu(dashboard):
 
 
 def show_manual_menu(dashboard, selection_frame):
-    """Hides selection and launches the manual sub-menu"""
     selection_frame.pack_forget()
 
     for child in dashboard.opt_menu_container.winfo_children():
-        if isinstance(child, ctk.CTkButton) and child.cget("text") == "[ BACK ]":
+        if isinstance(child, ctk.CTkButton) and child.cget("text") == "BACK":
             child.pack_forget()
 
     m_menu = ManualMenu(dashboard.opt_menu_container,
