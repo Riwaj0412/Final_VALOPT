@@ -35,7 +35,6 @@ class LogMenu(ctk.CTkFrame):
         self.back_btn.pack(side="bottom", pady=40)
 
     def refresh_logs(self):
-        """Populates the log box with current session history."""
         self.log_box.configure(state="normal")
         self.log_box.delete("1.0", "end")
         logs = session_logger.get_logs()
@@ -49,6 +48,5 @@ class LogMenu(ctk.CTkFrame):
         self.log_box.configure(state="disabled")
 
     def handle_restore(self):
-        """Triggers system restore logic and refreshes the view."""
         session_logger.restore_defaults()
         self.refresh_logs()
