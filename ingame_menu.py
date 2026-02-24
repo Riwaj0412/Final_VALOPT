@@ -1,6 +1,7 @@
 import customtkinter as ctk
 import styles
 from resolution import ResolutionMenu
+from graphics_quality import GraphicsQualityMenu
 
 
 class InGameMenu(ctk.CTkFrame):
@@ -13,18 +14,25 @@ class InGameMenu(ctk.CTkFrame):
 
     def show_gate_view(self):
         self.clear_frame()
+
+        ctk.CTkLabel(self, text="VALOPT", font=styles.FONT_ORBITRON_LG,
+                     text_color="#ff4655").pack(pady=(40, 10))
+
         self.res_gate_btn = ctk.CTkButton(
-            self,
-            text="RESOLUTION",
-            font=styles.FONT_ORBITRON_SM,
-            width=380,
-            height=60,
-            fg_color="transparent",
-            hover_color="#3498db",
-            command=self.open_resolution_file
+            self, text="RESOLUTION", font=styles.FONT_ORBITRON_SM,
+            width=380, height=60, fg_color="transparent",
+            hover_color="#3498db", command=self.open_resolution_file
         )
         styles.apply_tactical_style(self.res_gate_btn)
-        self.res_gate_btn.pack(pady=(120, 20))
+        self.res_gate_btn.pack(pady=(100, 10))
+
+        self.graphics_gate_btn = ctk.CTkButton(
+            self, text="GRAPHICS QUALITY", font=styles.FONT_ORBITRON_SM,
+            width=380, height=60, fg_color="transparent",
+            hover_color="#3498db", command=self.open_graphics_file
+        )
+        styles.apply_tactical_style(self.graphics_gate_btn)
+        self.graphics_gate_btn.pack(pady=10)
 
         self.back_btn = ctk.CTkButton(
             self, text="[ BACK ]", font=styles.FONT_ORBITRON_SM,
@@ -38,6 +46,11 @@ class InGameMenu(ctk.CTkFrame):
         self.clear_frame()
         self.res_menu = ResolutionMenu(self, self.show_gate_view)
         self.res_menu.pack(fill="both", expand=True)
+
+    def open_graphics_file(self):
+        self.clear_frame()
+        self.graphics_menu = GraphicsQualityMenu(self, self.show_gate_view)
+        self.graphics_menu.pack(fill="both", expand=True)
 
     def clear_frame(self):
         for child in self.winfo_children():
