@@ -6,8 +6,6 @@ from windows_menu import WindowsMenu
 from ingame_menu import InGameMenu
 from network_menu import NetworkMenu
 import extreme_fps
-
-# Importing the correct log function from your session_logger.py
 from session_logger import add_log
 
 
@@ -27,7 +25,6 @@ class ManualMenu(ctk.CTkFrame):
         self.button_frame = ctk.CTkFrame(self, fg_color="transparent")
         self.button_frame.pack(expand=True, fill="x", padx=50)
 
-        # Standard Buttons
         self.create_tactical_button(
             "IN-GAME SETTINGS", "#ff4655", command=self.show_ingame_submenu)
         self.create_tactical_button(
@@ -37,7 +34,6 @@ class ManualMenu(ctk.CTkFrame):
         self.create_tactical_button(
             "NETWORK", "#3d799d", command=self.show_network_submenu)
 
-        # EXTREME FPS Button (Red Font with White Outline Border)
         self.extreme_fps_btn = ctk.CTkButton(
             self.button_frame,
             text="EXTREME FPS",
@@ -45,16 +41,15 @@ class ManualMenu(ctk.CTkFrame):
             width=500,
             height=70,
             fg_color="transparent",
-            text_color="#ff4655",       # Red Font
-            border_width=2,             # White border as outline
-            border_color="white",
+            text_color="#ff4655",
+            border_width=1,
+            border_color="#ff4655",
             hover_color="#3498db",
             command=self.handle_extreme_fps
         )
         styles.apply_tactical_style(self.extreme_fps_btn)
         self.extreme_fps_btn.pack(pady=12, anchor="center")
 
-        # BACK BUTTON
         self.back_btn = ctk.CTkButton(
             self,
             text="[ BACK ]",
@@ -88,24 +83,23 @@ class ManualMenu(ctk.CTkFrame):
         btn.pack(pady=12, anchor="center")
 
     def handle_extreme_fps(self):
-        """Asks for confirmation before applying extreme optimizations."""
-        # The confirmation dialog
         confirm = messagebox.askyesno(
-            "VALOPT - Confirmation", "Are you sure you want to apply EXTREME FPS settings?")
+            "VALOPT", "Are you sure you want to apply EXTREME FPS settings?")
 
         if confirm:
             success, message = extreme_fps.apply_extreme_optimizations()
 
             if success:
-                # Add to session log and show success message
+                # Log to session history and show success
                 add_log(message, status="SUCCESS")
                 messagebox.showinfo("VALOPT", message)
             else:
-                add_log("EXTREME FPS FAILED", status="ERROR")
+                # Log the error
+                add_log("EXTREME FPS OPTIMIZATION FAILED", status="ERROR")
                 messagebox.showerror("VALOPT", message)
         else:
-            # Optional: Log the cancellation
-            add_log("Extreme FPS optimization cancelled by user", status="INFO")
+            # Log the cancellation
+            add_log("Extreme FPS optimization cancelled", status="INFO")
 
     def show_placeholder_msg(self):
         messagebox.showinfo("VALOPT", "Working on this feature")
