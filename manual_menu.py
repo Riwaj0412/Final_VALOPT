@@ -1,6 +1,7 @@
 import customtkinter as ctk
 import styles
 import os
+import glob
 from tkinter import messagebox
 from windows_menu import WindowsMenu
 from ingame_menu import InGameMenu
@@ -39,7 +40,23 @@ class ManualMenu(ctk.CTkFrame):
         self.create_tactical_button(
             "NETWORK", "#3d799d", command=self.show_network_submenu)
 
-        # 5. BACK BUTTON
+        # 5. EXTREME FPS (New Button below Network)
+        self.extreme_fps_btn = ctk.CTkButton(
+            self.button_frame,
+            text="EXTREME FPS",
+            font=styles.FONT_ORBITRON_MD,
+            width=500,
+            height=70,
+            fg_color="transparent",
+            border_width=1,
+            border_color="#ff4655",  # Red border
+            text_color="#ff4655",   # Red text as requested
+            command=self.handle_extreme_fps
+        )
+        styles.apply_tactical_style(self.extreme_fps_btn)
+        self.extreme_fps_btn.pack(pady=12, anchor="center")
+
+        # 6. BACK BUTTON
         self.back_btn = ctk.CTkButton(
             self,
             text="[ BACK ]",
@@ -71,6 +88,55 @@ class ManualMenu(ctk.CTkFrame):
         )
         styles.apply_tactical_style(btn)
         btn.pack(pady=12, anchor="center")
+
+    def handle_extreme_fps(self):
+        """Logic to strip Valorant settings to absolute minimum for FPS boost"""
+        local_appdata = os.getenv('LOCALAPPDATA')
+        pattern = os.path.join(local_appdata, "VALORANT", "Saved",
+                               "Config", "*", "Windows", "GameUserSettings.ini")
+        config_files = glob.glob(pattern)
+
+        if not config_files:
+            messagebox.showerror(
+                "VALOPT", "Valorant configuration file not found!")
+            return
+
+        # Core settings to force '0' (Extreme Low)
+        extreme_settings = {
+            "sg.ResolutionQuality": "100.000000",
+            "sg.ViewDistanceQuality": "0",
+            "sg.AntiAliasingQuality": "0",
+            "sg.ShadowQuality": "0",
+            "sg.PostProcessQuality": "0",
+            "sg.TextureQuality": "0",
+            "sg.EffectsQuality": "0",
+            "sg.FoliageQuality": "0",
+            "sg.ShadingQuality": "0"
+        }
+
+        try:
+            target_file = config_files[0]
+            with open(target_file, 'r') as file:
+                lines = file.readlines()
+
+            new_lines = []
+            for line in lines:
+                modified = False
+                for key, value in extreme_settings.items():
+                    if line.strip().startswith(key + "="):
+                        new_lines.append(f"{key}={value}\n")
+                        modified = True
+                        break
+                if not modified:
+                    new_lines.append(line)
+
+            with open(target_file, 'w') as file:
+                file.writelines(new_lines)
+
+            messagebox.showinfo(
+                "VALOPT", "EXTREME FPS SETTINGS APPLIED!\nRestart Valorant if it is running.")
+        except Exception as e:
+            messagebox.showerror("VALOPT", f"Error applying settings: {e}")
 
     def show_placeholder_msg(self):
         messagebox.showinfo("VALOPT", "Working on this feature")
