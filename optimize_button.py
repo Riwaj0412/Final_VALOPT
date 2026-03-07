@@ -70,7 +70,6 @@ def build_optimize_menu(dashboard):
 
 
 def _find_btn_by_text(dashboard, text):
-    """Safely find a CTkButton by its text label, avoiding TclError on non-button widgets."""
     for child in dashboard.opt_menu_container.winfo_children():
         for widget in getattr(child, 'winfo_children', lambda: [])():
             if isinstance(widget, ctk.CTkButton):
@@ -83,9 +82,6 @@ def _find_btn_by_text(dashboard, text):
 
 
 def run_recommended(dashboard):
-    """Run optimizations in a background thread to keep UI responsive."""
-
-    # Disable button and show loading state
     btn = _find_btn_by_text(dashboard, "RECOMMENDED")
     if btn:
         btn.configure(text="OPTIMIZING...",
@@ -99,9 +95,6 @@ def run_recommended(dashboard):
 
 
 def _show_results(dashboard, results):
-    """Show a popup summarising what was applied."""
-
-    # Re-enable / reset the button
     btn = _find_btn_by_text(dashboard, "OPTIMIZING...")
     if btn:
         btn.configure(text="RECOMMENDED", state="normal",
