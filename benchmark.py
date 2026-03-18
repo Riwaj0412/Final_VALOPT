@@ -13,7 +13,7 @@ except ImportError:
 
 from tkinter import filedialog
 
-from fps_reader import (is_valorant_running, detect_source,
+from fps_reader import (is_valorant_running, find_presentmon, detect_source,
                         start_capture, stop_capture,
                         get_live_fps, parse_capframex_file)
 from benchmark_data import (save_before, save_after,
@@ -22,6 +22,7 @@ from benchmark_data import (save_before, save_after,
 _RED = "#ff4655"
 _DARK = "#0f0f0f"
 _PANEL = "#1a1a1a"
+_PANEL2 = "#222222"
 _MUTED = "#666666"
 _WHITE = "#ffffff"
 _GREEN = "#00e676"
@@ -32,19 +33,20 @@ _FH = ("Orbitron", 26, "bold")
 _FM = ("Orbitron", 17, "bold")
 _FS = ("Orbitron", 14)
 _FT = ("Orbitron", 13)
+_FX = ("Orbitron", 11)
 
 _SRC_COLOUR = {
-    "log":        _GREEN,
+    "presentmon": _GREEN,
     "capframex":  _BLUE,
     "psutil":     _ORANGE,
     "none":       _MUTED,
     "no_data":    _RED,
 }
 _SRC_LABEL = {
-    "log":        "📄 Valorant Log",
+    "presentmon": "📡 PresentMon (precise)",
     "capframex":  "📊 CapFrameX",
     "psutil":     "⚙ Estimated (psutil)",
-    "none":       "— No source",
+    "none":       "— No source detected",
     "no_data":    "⚠ No data captured",
 }
 
@@ -58,17 +60,14 @@ class BenchmarkMenu(ctk.CTkFrame):
 
         tab_bar = ctk.CTkFrame(self, fg_color=_PANEL, corner_radius=8)
         tab_bar.pack(fill="x", padx=30, pady=(0, 8))
-
         self._tab_btns = {}
         self._tab_frames = {}
-
         for name in ("LIVE", "FPS BENCHMARK", "COMPARISON"):
             btn = ctk.CTkButton(
-                tab_bar, text=name, font=_FT,
+                tab_bar, text=name, font=_FX,
                 fg_color="transparent", hover_color="#2a2a2a",
                 text_color=_WHITE, height=36, corner_radius=6,
-                command=lambda n=name: self._switch_tab(n)
-            )
+                command=lambda n=name: self._switch_tab(n))
             btn.pack(side="left", padx=4, pady=4)
             self._tab_btns[name] = btn
 
@@ -87,11 +86,16 @@ class BenchmarkMenu(ctk.CTkFrame):
         ).pack(side="bottom", pady=24)
 
         self._live_running = True
+        self._recording_mode = None
         self._update_live()
+        self._watch_for_game()
 
     def _on_back(self, back_cmd):
         def _inner():
             self._live_running = False
+            if self._recording_mode:
+                stop_capture()
+                self._recording_mode = None
             back_cmd()
         return _inner
 
@@ -107,22 +111,21 @@ class BenchmarkMenu(ctk.CTkFrame):
     def _build_live_tab(self):
         f = ctk.CTkFrame(self._content, fg_color="transparent")
         self._tab_frames["LIVE"] = f
-
         stats = ctk.CTkFrame(f, fg_color="transparent")
         stats.pack(expand=True, pady=20)
 
-        def stat_lbl(text, color=_WHITE):
+        def stat(text, color=_WHITE):
             l = ctk.CTkLabel(stats, text=text,
                              font=("Orbitron", 24, "bold"), text_color=color)
             l.pack(pady=12)
             return l
 
-        self._cpu_lbl = stat_lbl("CPU USAGE: --%")
-        self._gpu_lbl = stat_lbl("GPU USAGE: --%")
-        self._ram_lbl = stat_lbl("RAM USAGE: --%")
-        self._fps_live = stat_lbl("LIVE FPS: --", _ORANGE)
+        self._cpu_lbl = stat("CPU USAGE: --%")
+        self._gpu_lbl = stat("GPU USAGE: --%")
+        self._ram_lbl = stat("RAM USAGE: --%")
+        self._fps_live = stat("LIVE FPS: --", _ORANGE)
         self._src_live = ctk.CTkLabel(
-            stats, text="", font=_FS, text_color=_MUTED)
+            stats, text="", font=_FX, text_color=_MUTED)
         self._src_live.pack()
 
     def _update_live(self):
@@ -143,86 +146,87 @@ class BenchmarkMenu(ctk.CTkFrame):
         self._gpu_lbl.configure(text=gpu_text)
 
         live = get_live_fps()
-        if live:
-            self._fps_live.configure(text=f"LIVE FPS: {live:.0f}")
-        else:
-            self._fps_live.configure(text="LIVE FPS: (start a benchmark)")
+        self._fps_live.configure(
+            text=f"LIVE FPS: {live:.0f}" if live else "LIVE FPS: (start recording)")
 
         src = detect_source()
         self._src_live.configure(
             text=f"Source: {_SRC_LABEL.get(src, src)}",
-            text_color=_SRC_COLOUR.get(src, _MUTED)
-        )
+            text_color=_SRC_COLOUR.get(src, _MUTED))
+
         self.after(1000, self._update_live)
 
     def _build_benchmark_tab(self):
         f = ctk.CTkFrame(self._content, fg_color="transparent")
         self._tab_frames["FPS BENCHMARK"] = f
 
+        # status
         self._bench_status = ctk.CTkLabel(
-            f, text="Open Valorant, then press RECORD BEFORE.",
-            font=_FS, text_color=_MUTED, wraplength=620)
-        self._bench_status.pack(pady=(16, 4))
+            f, text="Press RECORD BEFORE, play for a while, then press STOP.",
+            font=_FS, text_color=_MUTED, wraplength=640)
+        self._bench_status.pack(pady=(14, 2))
 
-        self._src_badge = ctk.CTkLabel(f, text="", font=_FT, text_color=_MUTED)
-        self._src_badge.pack(pady=(0, 8))
+        # source + setup tip
+        self._src_badge = ctk.CTkLabel(f, text="", font=_FX, text_color=_MUTED)
+        self._src_badge.pack()
+        self._pm_tip = ctk.CTkLabel(f, text="", font=_FX,
+                                    text_color=_ORANGE, wraplength=640)
+        self._pm_tip.pack(pady=(0, 6))
         self._refresh_src_badge()
 
+        # cards
         cards = ctk.CTkFrame(f, fg_color="transparent")
         cards.pack(pady=8)
         self._before_card = self._make_fps_card(cards, "BEFORE", _RED)
-        self._before_card.pack(side="left", padx=12)
+        self._before_card.pack(side="left", padx=14)
         self._after_card = self._make_fps_card(cards, "AFTER",  _GREEN)
-        self._after_card.pack(side="left", padx=12)
+        self._after_card.pack(side="left", padx=14)
 
-        # record buttons
+        # main buttons
         btn_row = ctk.CTkFrame(f, fg_color="transparent")
-        btn_row.pack(pady=12)
+        btn_row.pack(pady=10)
 
         self._btn_before = ctk.CTkButton(
             btn_row, text="⏺  RECORD BEFORE", font=_FT,
-            fg_color=_PANEL, hover_color="#2a2a2a",
+            fg_color=_PANEL, hover_color=_PANEL2,
             border_width=1, border_color=_RED,
-            text_color=_WHITE, height=44, width=200,
+            text_color=_WHITE, height=46, width=210,
             command=lambda: self._start_recording("before"))
         self._btn_before.pack(side="left", padx=8)
 
         self._btn_after = ctk.CTkButton(
             btn_row, text="⏺  RECORD AFTER", font=_FT,
-            fg_color=_PANEL, hover_color="#2a2a2a",
+            fg_color=_PANEL, hover_color=_PANEL2,
             border_width=1, border_color=_GREEN,
-            text_color=_WHITE, height=44, width=200,
+            text_color=_WHITE, height=46, width=210,
             command=lambda: self._start_recording("after"))
         self._btn_after.pack(side="left", padx=8)
 
         self._btn_stop = ctk.CTkButton(
             btn_row, text="⏹  STOP", font=_FT,
             fg_color=_RED, hover_color="#ff5f6b",
-            text_color=_WHITE, height=44, width=110,
+            text_color=_WHITE, height=46, width=120,
             command=self._stop_recording, state="disabled")
         self._btn_stop.pack(side="left", padx=8)
 
-        # secondary row — CapFrameX import + clear
-        sec_row = ctk.CTkFrame(f, fg_color="transparent")
-        sec_row.pack(pady=4)
+        # secondary row
+        sec = ctk.CTkFrame(f, fg_color="transparent")
+        sec.pack(pady=4)
 
         ctk.CTkButton(
-            sec_row, text="📂  Import CapFrameX file", font=_FT,
-            fg_color="transparent", hover_color="#2a2a2a",
+            sec, text="📂  Import CapFrameX file", font=_FX,
+            fg_color="transparent", hover_color=_PANEL2,
             border_width=1, border_color=_BLUE,
-            text_color=_BLUE, height=36, width=220,
+            text_color=_BLUE, height=34, width=220,
             command=self._import_cfx).pack(side="left", padx=8)
 
         ctk.CTkButton(
-            sec_row, text="CLEAR ALL", font=_FT,
-            fg_color="transparent", hover_color="#2a2a2a",
+            sec, text="CLEAR ALL", font=_FX,
+            fg_color="transparent", hover_color=_PANEL2,
             border_width=1, border_color="gray30",
-            text_color=_MUTED, height=36, width=110,
+            text_color=_MUTED, height=34, width=100,
             command=self._clear_data).pack(side="left", padx=8)
 
-        self._recording_mode = None
-        self._timer_id = None
-        self._pending_import = None   # "before" | "after" — for CFX import target
         self._refresh_cards()
 
     def _refresh_src_badge(self):
@@ -232,77 +236,47 @@ class BenchmarkMenu(ctk.CTkFrame):
         self._src_badge.configure(
             text=f"Data source: {label}", text_color=colour)
 
-    def _make_fps_card(self, parent, label, accent) -> ctk.CTkFrame:
-        card = ctk.CTkFrame(parent, fg_color=_PANEL,
-                            corner_radius=10, width=270, height=240)
-        card.pack_propagate(False)
-        ctk.CTkLabel(card, text=label, font=_FM,
-                     text_color=accent).pack(pady=(16, 6))
-        for attr, title in (("avg", "AVG"), ("min", "MIN"), ("max", "MAX"), ("low1", "1% LOW")):
-            row = ctk.CTkFrame(card, fg_color="transparent")
-            row.pack(fill="x", padx=18, pady=4)
-            ctk.CTkLabel(row, text=f"{title}:", font=_FT,
-                         text_color=_MUTED, width=80, anchor="w").pack(side="left")
-            lbl = ctk.CTkLabel(row, text="--", font=_FT,
-                               text_color=_WHITE, anchor="w")
-            lbl.pack(side="left")
-            setattr(card, f"_{attr}_lbl", lbl)
-        card._src_lbl = ctk.CTkLabel(card, text="", font=("Orbitron", 11),
-                                     text_color=_MUTED)
-        card._src_lbl.pack(pady=(4, 10))
-        return card
+        if src != "presentmon":
+            self._pm_tip.configure(
+                text="💡 For precise FPS: place PresentMon64.exe in the app folder. "
+                     "Download: github.com/GameTechDev/PresentMon/releases")
+        else:
+            self._pm_tip.configure(text="")
 
-    def _fill_card(self, card, snap):
-        if snap is None:
-            for attr in ("avg", "min", "max", "low1"):
-                getattr(card, f"_{attr}_lbl").configure(text="--")
-            card._src_lbl.configure(text="")
+    def _watch_for_game(self):
+        if not self._live_running:
             return
-        card._avg_lbl.configure(text=f"{snap.avg:.1f} fps")
-        card._min_lbl.configure(text=f"{snap.min:.1f} fps")
-        card._max_lbl.configure(text=f"{snap.max:.1f} fps")
-        card._low1_lbl.configure(text=f"{snap.low1:.1f} fps")
-        src_text = _SRC_LABEL.get(snap.source, snap.source)
-        src_color = _SRC_COLOUR.get(snap.source, _MUTED)
-        card._src_lbl.configure(text=src_text, text_color=src_color)
+        if is_valorant_running() and self._recording_mode is None:
+            rec = load_benchmark()
+            has_before = rec and rec.before
+            has_opts = len(_get_recent_optimizations()) > 0
 
-    def _refresh_cards(self):
-        rec = load_benchmark()
-        if rec:
-            self._fill_card(self._before_card, rec.before)
-            self._fill_card(self._after_card,  rec.after)
+            if not has_before:
+                self._bench_status.configure(
+                    text="🎮 Valorant detected!  Press RECORD BEFORE to capture your baseline FPS.",
+                    text_color=_GREEN)
+            elif has_before and has_opts and (not rec or not rec.after):
+                self._bench_status.configure(
+                    text="✅ Optimizations applied!  Press RECORD AFTER to capture your new FPS.",
+                    text_color=_ORANGE)
 
-    def _start_recording(self, mode: str, duration: int = 30):
+        self.after(3000, self._watch_for_game)
+
+    def _start_recording(self, mode: str):
         if not is_valorant_running():
             self._show_game_prompt()
             return
         self._recording_mode = mode
         self._bench_status.configure(
-            text=f"Recording {mode.upper()} FPS for {duration}s — play normally.",
+            text=f"● Recording {mode.upper()} FPS — play normally, press STOP when done.",
             text_color=_RED)
         self._btn_before.configure(state="disabled")
         self._btn_after.configure(state="disabled")
         self._btn_stop.configure(state="normal")
         self._refresh_src_badge()
         start_capture()
-        self._remaining = duration
-        self._tick()
-
-    def _tick(self):
-        if self._remaining > 0 and self._recording_mode:
-            self._bench_status.configure(
-                text=f"● Recording {self._recording_mode.upper()} — {self._remaining}s left  (or press STOP)",
-                text_color=_ORANGE)
-            self._remaining -= 1
-            self._timer_id = self.after(1000, self._tick)
-        else:
-            self._stop_recording()
 
     def _stop_recording(self):
-        if self._timer_id:
-            self.after_cancel(self._timer_id)
-            self._timer_id = None
-
         result = stop_capture()
         mode = self._recording_mode
         self._recording_mode = None
@@ -322,13 +296,15 @@ class BenchmarkMenu(ctk.CTkFrame):
         if mode == "before":
             save_before(result)
             self._bench_status.configure(
-                text=f"✔ BEFORE saved — avg {result.avg} fps  |  Now optimise then RECORD AFTER.",
+                text=f"✔ BEFORE saved  —  avg {result.avg} fps  ({result.samples} frames)  |  "
+                f"Now apply optimizations, then RECORD AFTER.",
                 text_color=_GREEN)
         else:
             changes = _get_recent_optimizations()
             save_after(result, changes)
             self._bench_status.configure(
-                text=f"✔ AFTER saved — avg {result.avg} fps  |  See COMPARISON tab.",
+                text=f"✔ AFTER saved  —  avg {result.avg} fps  ({result.samples} frames)  |  "
+                f"Check COMPARISON tab.",
                 text_color=_GREEN)
         self._refresh_cards()
 
@@ -336,76 +312,107 @@ class BenchmarkMenu(ctk.CTkFrame):
         clear_benchmark()
         self._refresh_cards()
         self._bench_status.configure(
-            text="Cleared.  Record a fresh BEFORE benchmark.",
-            text_color=_MUTED)
+            text="Cleared. Record a fresh BEFORE benchmark.", text_color=_MUTED)
 
     def _show_game_prompt(self):
         popup = ctk.CTkToplevel(self)
-        popup.title("VALOPT — Game Not Running")
-        popup.geometry("420x190")
+        popup.title("VALOPT")
+        popup.geometry("420x180")
         popup.configure(fg_color=_DARK)
         popup.resizable(False, False)
         popup.grab_set()
         ctk.CTkLabel(popup, text="⚠  VALORANT IS NOT RUNNING",
                      font=_FM, text_color=_RED).pack(pady=(28, 8))
         ctk.CTkLabel(popup,
-                     text="Please open Valorant and load into a match\nbefore starting the FPS benchmark.",
-                     font=_FT, text_color=_WHITE, justify="center").pack(pady=4)
+                     text="Open Valorant and load into a match first.",
+                     font=_FT, text_color=_WHITE).pack(pady=4)
         ctk.CTkButton(popup, text="OK", font=_FT,
                       fg_color=_RED, hover_color="#ff5f6b",
                       text_color=_WHITE, height=40, width=120,
                       command=popup.destroy).pack(pady=16)
 
+    def _make_fps_card(self, parent, label, accent) -> ctk.CTkFrame:
+        card = ctk.CTkFrame(parent, fg_color=_PANEL,
+                            corner_radius=10, width=270, height=240)
+        card.pack_propagate(False)
+        ctk.CTkLabel(card, text=label, font=_FM,
+                     text_color=accent).pack(pady=(16, 6))
+        for attr, title in (("avg", "AVG"), ("min", "MIN"), ("max", "MAX"), ("low1", "1% LOW")):
+            row = ctk.CTkFrame(card, fg_color="transparent")
+            row.pack(fill="x", padx=18, pady=4)
+            ctk.CTkLabel(row, text=f"{title}:", font=_FT,
+                         text_color=_MUTED, width=80, anchor="w").pack(side="left")
+            lbl = ctk.CTkLabel(row, text="--", font=_FT,
+                               text_color=_WHITE, anchor="w")
+            lbl.pack(side="left")
+            setattr(card, f"_{attr}_lbl", lbl)
+        card._src_lbl = ctk.CTkLabel(
+            card, text="", font=_FX, text_color=_MUTED)
+        card._src_lbl.pack(pady=(4, 10))
+        return card
+
+    def _fill_card(self, card, snap):
+        if snap is None:
+            for attr in ("avg", "min", "max", "low1"):
+                getattr(card, f"_{attr}_lbl").configure(text="--")
+            card._src_lbl.configure(text="")
+            return
+        card._avg_lbl.configure(text=f"{snap.avg:.1f} fps")
+        card._min_lbl.configure(text=f"{snap.min:.1f} fps")
+        card._max_lbl.configure(text=f"{snap.max:.1f} fps")
+        card._low1_lbl.configure(text=f"{snap.low1:.1f} fps")
+        card._src_lbl.configure(
+            text=_SRC_LABEL.get(snap.source, snap.source),
+            text_color=_SRC_COLOUR.get(snap.source, _MUTED))
+
+    def _refresh_cards(self):
+        rec = load_benchmark()
+        if rec:
+            self._fill_card(self._before_card, rec.before)
+            self._fill_card(self._after_card,  rec.after)
+
     def _import_cfx(self):
         path = filedialog.askopenfilename(
-            title="Select CapFrameX capture file",
+            title="Select CapFrameX capture",
             filetypes=[("CapFrameX JSON", "*.json"), ("All files", "*.*")],
             initialdir=os.path.join(
-                os.path.expanduser("~"), "Documents", "CapFrameX", "Captures")
-        )
+                os.path.expanduser("~"), "Documents", "CapFrameX", "Captures"))
         if not path:
             return
-
         result = parse_capframex_file(path)
-        if result is None or result.samples == 0:
+        if not result or result.samples == 0:
             self._bench_status.configure(
-                text="⚠ Could not read FPS data from that file.",
-                text_color=_RED)
+                text="⚠ Couldn't read FPS data from that file.", text_color=_RED)
             return
+        self._show_cfx_dialog(result)
 
-        self._show_cfx_import_dialog(result)
-
-    def _show_cfx_import_dialog(self, result):
+    def _show_cfx_dialog(self, result):
         popup = ctk.CTkToplevel(self)
-        popup.title("Import CapFrameX Data")
-        popup.geometry("420x240")
+        popup.title("Import CapFrameX")
+        popup.geometry("420x220")
         popup.configure(fg_color=_DARK)
         popup.resizable(False, False)
         popup.grab_set()
-
         ctk.CTkLabel(popup, text="CAPFRAMEX DATA IMPORTED",
                      font=_FM, text_color=_BLUE).pack(pady=(20, 4))
         ctk.CTkLabel(popup,
-                     text=f"avg {result.avg} fps  |  min {result.min}  |  max {result.max}  |  1%low {result.low1}\n({result.samples} frames)",
+                     text=f"avg {result.avg} fps  |  min {result.min}  |  "
+                     f"max {result.max}  |  1%low {result.low1}\n({result.samples} frames)",
                      font=_FT, text_color=_WHITE, justify="center").pack(pady=4)
-        ctk.CTkLabel(popup, text="Save this as:",
-                     font=_FT, text_color=_MUTED).pack(pady=(8, 4))
-
+        ctk.CTkLabel(popup, text="Save as:", font=_FT,
+                     text_color=_MUTED).pack(pady=(6, 4))
         row = ctk.CTkFrame(popup, fg_color="transparent")
         row.pack()
-
-        def _save(mode):
-            popup.destroy()
-            self._save_result(mode, result)
-
-        ctk.CTkButton(row, text="BEFORE", font=_FT,
-                      fg_color=_RED, hover_color="#ff5f6b",
-                      text_color=_WHITE, height=40, width=130,
-                      command=lambda: _save("before")).pack(side="left", padx=8)
-        ctk.CTkButton(row, text="AFTER", font=_FT,
-                      fg_color=_GREEN, hover_color="#00ff88",
-                      text_color=_DARK, height=40, width=130,
-                      command=lambda: _save("after")).pack(side="left", padx=8)
+        for lbl, mode, fg, hov, tc in [
+            ("BEFORE", "before", _RED,   "#ff5f6b", _WHITE),
+            ("AFTER",  "after",  _GREEN, "#00ff88", _DARK),
+        ]:
+            ctk.CTkButton(row, text=lbl, font=_FT, fg_color=fg,
+                          hover_color=hov, text_color=tc,
+                          height=40, width=130,
+                          command=lambda m=mode: [popup.destroy(),
+                                                  self._save_result(m, result)]
+                          ).pack(side="left", padx=8)
 
     def _build_comparison_tab(self):
         f = ctk.CTkFrame(self._content, fg_color="transparent")
@@ -424,50 +431,46 @@ class BenchmarkMenu(ctk.CTkFrame):
             return
 
         # chart
-        chart_f = ctk.CTkFrame(
-            self._comp_frame, fg_color=_PANEL, corner_radius=10)
-        chart_f.pack(fill="x", pady=(8, 4))
-        ctk.CTkLabel(chart_f, text="FPS COMPARISON",
-                     font=_FM, text_color=_RED).pack(pady=(10, 2))
-        canvas = ctk.CTkCanvas(chart_f, bg="#1a1a1a",
-                               highlightthickness=0, height=200)
+        cf = ctk.CTkFrame(self._comp_frame, fg_color=_PANEL, corner_radius=10)
+        cf.pack(fill="x", pady=(8, 4))
+        ctk.CTkLabel(cf, text="FPS COMPARISON", font=_FM,
+                     text_color=_RED).pack(pady=(10, 2))
+        canvas = ctk.CTkCanvas(
+            cf, bg="#1a1a1a", highlightthickness=0, height=200)
         canvas.pack(fill="x", padx=16, pady=(0, 12))
         self.after(80, lambda: self._draw_chart(canvas, rec))
 
+        # delta
         if rec.after:
-            b, a = rec.before, rec.after
-            delta = a.avg - b.avg
-            pct = (delta / b.avg * 100) if b.avg else 0
-            arrow = "▲" if delta >= 0 else "▼"
-            col = _GREEN if delta >= 0 else _RED
-            ctk.CTkLabel(
-                self._comp_frame,
-                text=f"{arrow}  AVG FPS  {delta:+.1f}  ({pct:+.1f}%)",
-                font=_FM, text_color=col
-            ).pack(pady=6)
+            delta = rec.after.avg - rec.before.avg
+            pct = (delta / rec.before.avg * 100) if rec.before.avg else 0
+            arrow, col = ("▲", _GREEN) if delta >= 0 else ("▼", _RED)
+            ctk.CTkLabel(self._comp_frame,
+                         text=f"{arrow}  AVG FPS  {delta:+.1f}  ({pct:+.1f}%)",
+                         font=_FM, text_color=col).pack(pady=6)
 
+        # changes
         if rec.changes:
             ctk.CTkLabel(self._comp_frame, text="OPTIMIZATIONS APPLIED",
                          font=_FS, text_color=_GREEN).pack(pady=(4, 2))
             scroll = ctk.CTkScrollableFrame(
-                self._comp_frame, fg_color=_PANEL,
-                corner_radius=8, height=120)
+                self._comp_frame, fg_color=_PANEL, corner_radius=8, height=120)
             scroll.pack(fill="x", pady=(0, 6))
             for ch in rec.changes:
                 row = ctk.CTkFrame(scroll, fg_color="transparent")
                 row.pack(fill="x", pady=1)
-                ctk.CTkLabel(row, text="▸", font=_FT,
+                ctk.CTkLabel(row, text="▸", font=_FX,
                              text_color=_GREEN, width=18).pack(side="left")
-                ctk.CTkLabel(row, text=ch, font=_FT,
+                ctk.CTkLabel(row, text=ch, font=_FX,
                              text_color=_WHITE, anchor="w").pack(side="left", padx=4)
         elif rec.after:
             ctk.CTkLabel(self._comp_frame,
                          text="(no optimization log found — run Recommended or Manual first)",
-                         font=_FT, text_color=_MUTED).pack(pady=4)
+                         font=_FX, text_color=_MUTED).pack(pady=4)
 
     def _draw_chart(self, canvas, rec):
         canvas.update_idletasks()
-        W = canvas.winfo_width() or 580
+        W = canvas.winfo_width() or 560
         H = canvas.winfo_height() or 200
 
         metrics = [("AVG", "avg"), ("MIN", "min"),
@@ -488,8 +491,7 @@ class BenchmarkMenu(ctk.CTkFrame):
             y = H - pad_b - (max_val * pct * scale)
             canvas.create_line(pad_l, y, W - pad_r, y,
                                fill="#2a2a2a", dash=(4, 4))
-            canvas.create_text(pad_l - 4, y,
-                               text=f"{int(max_val*pct)}",
+            canvas.create_text(pad_l - 4, y, text=f"{int(max_val*pct)}",
                                fill=_MUTED, font=("Orbitron", 7), anchor="e")
 
         def bar(slot, which, value, colour):
@@ -498,8 +500,7 @@ class BenchmarkMenu(ctk.CTkFrame):
             x1, x2 = xc + offset - bar_w/2, xc + offset + bar_w/2
             y2, y1 = H - pad_b, max(H - pad_b - value * scale, pad_t)
             canvas.create_rectangle(x1, y1, x2, y2, fill=colour, outline="")
-            canvas.create_text((x1+x2)/2, y1-5,
-                               text=f"{value:.0f}",
+            canvas.create_text((x1+x2)/2, y1-5, text=f"{value:.0f}",
                                fill=colour, font=("Orbitron", 7))
 
         for i, (label, attr) in enumerate(metrics):
@@ -510,8 +511,9 @@ class BenchmarkMenu(ctk.CTkFrame):
             canvas.create_text(xc, H - pad_b + 14, text=label,
                                fill=_WHITE, font=("Orbitron", 8, "bold"))
 
-        for idx, (col, lbl) in enumerate([((_RED, "BEFORE"), (_GREEN, "AFTER"))
-                                          if rec.after else ((_RED, "BEFORE"),)][0]):
+        for idx, (col, lbl) in enumerate(
+                [(_RED, "BEFORE"), (_GREEN, "AFTER")] if rec.after
+                else [(_RED, "BEFORE")]):
             y_off = 10 + idx * 16
             canvas.create_rectangle(W-110, y_off, W-98, y_off+10,
                                     fill=col, outline="")
@@ -525,15 +527,16 @@ def _get_recent_optimizations() -> list:
         logs = session_logger.get_logs()
         keywords = ("Power Plan", "Extreme FPS", "RAM Clean", "Game DVR",
                     "Priority", "DNS", "Recommended", "Manual", "Applied",
-                    "Windows", "NVIDIA", "Network", "Resolution")
+                    "Windows", "NVIDIA", "Network", "Resolution", "Benchmark")
         result = []
         for entry in logs[-80:]:
             if any(k in entry for k in keywords):
-                # strip timestamp prefix for display
-                clean = entry.split(
-                    "] ", 1)[-1].replace(" -> SUCCESS", "").replace(" -> FAILED", " ⚠").strip()
+                # Strip "[HH:MM:SS] " prefix and " -> SUCCESS" suffix
+                clean = entry.split("] ", 1)[-1]
+                clean = clean.replace(
+                    " -> SUCCESS", "").replace(" -> FAILED", " ⚠").strip()
                 if clean and clean not in result:
                     result.append(clean)
-        return result[-20:]     # cap at 20 entries
+        return result[-20:]
     except Exception:
         return []
