@@ -3,21 +3,57 @@ import sys
 import shutil
 import subprocess
 
-# ── config ─────────────────────────────────────────────────────────────────────
 APP_NAME = "VALOPT"
 ENTRY_POINT = "main.py"
-# optional — set to None if you have no icon
-ICON_PATH = "assets/icon.ico"
-ASSETS_DIR = "assets"
-# add ("src_path", "dest_folder") tuples if needed
-EXTRA_DATA = []
+ICON_PATH = os.path.join("assets", "icon.ico")
 
-# ── UAC manifest (requests admin on launch) ────────────────────────────────────
+HIDDEN_IMPORTS = [
+    "customtkinter",
+    "psutil",
+    "GPUtil",
+    "PIL",
+    "PIL.Image",
+    "PIL.ImageTk",
+    "splash",
+    "detected",
+    "dashboard",
+    "ux",
+    "styles",
+    "home_menu",
+    "log_menu",
+    "manual_menu",
+    "ingame_menu",
+    "graphics_quality",
+    "network_menu",
+    "windows_button",
+    "resolution",
+    "priority",
+    "ram_cleaner",
+    "extreme_fps",
+    "power_plan",
+    "optimize_button",
+    "recommended",
+    "benchmark",
+    "benchmark_data",
+    "fps_reader",
+    "session_logger",
+    "specs_menu",
+    "specs_factory",
+    "engine",
+    "monitor",
+    "launcher",
+    "toggle_logic",
+    "installer",
+    "valorant_config",
+    "windows_menu",
+]
+
+# UAC manifest — elevates on launch, embedded into the exe
 _MANIFEST = """\
 <?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <assembly xmlns="urn:schemas-microsoft-com:asm.v1" manifestVersion="1.0">
-  <assemblyIdentity version="1.0.0.0" processorArchitecture="X86"
-    name="{name}" type="win32"/>
+  <assemblyIdentity version="1.0.0.0" processorArchitecture="AMD64"
+    name="VALOPT" type="win32"/>
   <trustInfo xmlns="urn:schemas-microsoft-com:asm.v3">
     <security>
       <requestedPrivileges>
@@ -26,91 +62,92 @@ _MANIFEST = """\
     </security>
   </trustInfo>
 </assembly>
-""".format(name=APP_NAME)
-
-_MANIFEST_PATH = f"{APP_NAME}.manifest"
-
-
-def write_manifest():
-    with open(_MANIFEST_PATH, "w") as f:
-        f.write(_MANIFEST)
-    print(f"[build] Manifest written → {_MANIFEST_PATH}")
+"""
+_MANIFEST_FILE = "VALOPT.manifest"
 
 
 def check_pyinstaller():
     try:
         import PyInstaller
-        print(f"[build] PyInstaller found: {PyInstaller.__version__}")
+        print(f"[ok] PyInstaller {PyInstaller.__version__}")
     except ImportError:
-        print("[build] PyInstaller not found — installing…")
-        subprocess.run([sys.executable, "-m", "pip", "install", "pyinstaller"],
-                       check=True)
+        print("[..] Installing PyInstaller...")
+        subprocess.run(
+            [sys.executable, "-m", "pip", "install", "pyinstaller"],
+            check=True)
+        print("[ok] PyInstaller installed")
 
 
 def build():
-    write_manifest()
+    print("\n" + "="*50)
+    print("  VALOPT BUILD")
+    print("="*50 + "\n")
+
     check_pyinstaller()
 
-    # collect assets folder
-    datas = []
-    if os.path.isdir(ASSETS_DIR):
-        datas.append(f"{ASSETS_DIR}{os.pathsep}{ASSETS_DIR}")
-    for src, dst in EXTRA_DATA:
-        datas.append(f"{src}{os.pathsep}{dst}")
+    with open(_MANIFEST_FILE, "w") as f:
+        f.write(_MANIFEST)
+
+    sep = ";" if sys.platform == "win32" else ":"
 
     cmd = [
         sys.executable, "-m", "PyInstaller",
-        "--onefile",                            # single .exe
-        "--windowed",                           # no console window
+        "--onefile",
+        "--windowed",
+        "--noconsole",
         f"--name={APP_NAME}",
-        f"--manifest={_MANIFEST_PATH}",         # UAC admin request
-        # PyInstaller UAC flag (belt+braces)
+
+        f"--manifest={_MANIFEST_FILE}",
         "--uac-admin",
 
-        # hidden imports that PyInstaller misses
-        "--hidden-import=customtkinter",
-        "--hidden-import=psutil",
-        "--hidden-import=GPUtil",
-        "--hidden-import=PIL",
-        "--hidden-import=PIL.Image",
-
-        # collect entire customtkinter package (it has data files)
         "--collect-all=customtkinter",
+        "--collect-all=darkdetect",
     ]
 
     if os.path.exists(ICON_PATH):
-        cmd.append(f"--icon={ICON_PATH}")
+        cmd += [f"--icon={ICON_PATH}"]
+        print(f"[ok] Icon: {ICON_PATH}")
+    else:
+        print(f"[--] No icon found at {ICON_PATH}, skipping")
 
-    for d in datas:
-        cmd.extend(["--add-data", d])
+    for imp in HIDDEN_IMPORTS:
+        cmd += ["--hidden-import", imp]
+
+    if os.path.isdir("assets"):
+        cmd += ["--add-data", f"assets{sep}assets"]
+        print("[ok] Bundling assets/")
 
     cmd.append(ENTRY_POINT)
 
-    print(f"\n[build] Running PyInstaller…\n{'─'*60}")
+    print("\n[..] Running PyInstaller (1-3 min)...\n")
     result = subprocess.run(cmd)
 
-    if result.returncode == 0:
-        exe_path = os.path.join("dist", f"{APP_NAME}.exe")
-        size_mb = os.path.getsize(exe_path) / 1_048_576
-        print(f"\n{'─'*60}")
-        print(f"[build] ✔  SUCCESS")
-        print(f"[build]    Output : {os.path.abspath(exe_path)}")
-        print(f"[build]    Size   : {size_mb:.1f} MB")
-        print(f"\n[build] Share dist/{APP_NAME}.exe — that's all users need!")
-    else:
-        print("\n[build] ✖  Build failed — see errors above.")
-
-    # cleanup temp files
-    for f in [_MANIFEST_PATH, f"{APP_NAME}.spec"]:
+    for f in [_MANIFEST_FILE, f"{APP_NAME}.spec"]:
         try:
             os.remove(f)
         except Exception:
             pass
-    for d in ["build", "__pycache__"]:
-        try:
-            shutil.rmtree(d)
-        except Exception:
-            pass
+    try:
+        shutil.rmtree("build")
+    except Exception:
+        pass
+
+    print("\n" + "="*50)
+    if result.returncode == 0:
+        exe = os.path.abspath(os.path.join("dist", f"{APP_NAME}.exe"))
+        mb = os.path.getsize(exe) / 1_048_576
+        print(f"  BUILD SUCCESS")
+        print(f"  File : {exe}")
+        print(f"  Size : {mb:.0f} MB")
+        print(f"\n  Share dist/VALOPT.exe with your users.")
+        print(f"  They need nothing else installed.")
+    else:
+        print("  BUILD FAILED")
+        print("\n  Fix checklist:")
+        print("  1. Run this from inside your VALOPT project folder")
+        print("  2. Make sure all imports work:  python main.py")
+        print("  3. pip install pyinstaller customtkinter psutil GPUtil Pillow")
+    print("="*50 + "\n")
 
 
 if __name__ == "__main__":
