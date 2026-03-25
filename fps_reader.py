@@ -1,11 +1,7 @@
-import os
-import re
-import csv
-import glob
-import json
+import mmap
+import ctypes
+import ctypes.wintypes
 import time
-import shutil
-import subprocess
 import threading
 import statistics
 import psutil
@@ -15,26 +11,56 @@ from typing import Optional
 
 
 _VALO_EXE = "VALORANT-Win64-Shipping.exe"
-_PM_EXE_NAME = "PresentMon64.exe"
+_RTSS_EXE = "RTSS.exe"
+_SHM_NAME = "RTSSSharedMemoryV2"
 
-_CFX_DIR = os.path.join(
-    os.path.expanduser("~"), "Documents", "CapFrameX", "Captures"
-)
-
-_COL_MS_BETWEEN = "msBetweenPresents"
-_COL_DISPLAYED = "msUntilDisplayed"
+# ── RTSS shared memory C structs (from RTSS SDK) ──────────────────────────────
 
 
-@dataclass
-class FpsResult:
-    avg:     float = 0.0
-    min:     float = 0.0
-    max:     float = 0.0
-    low1:    float = 0.0
-    samples: int = 0
-    source:  str = "none"
+class RTSSSharedMemoryHeader(ctypes.Structure):
+    _pack_ = 1
+    _fields_ = [
+        ("dwSignature",    ctypes.c_uint32),   # 'RTSS' = 0x53535452
+        ("dwVersion",      ctypes.c_uint32),   # version * 0x10000
+        ("dwAppEntrySize", ctypes.c_uint32),   # sizeof one app entry
+        ("dwAppArrOffset", ctypes.c_uint32),   # offset to app array
+        ("dwAppArrSize",   ctypes.c_uint32),   # number of app entries
+        ("dwOSDEntrySize", ctypes.c_uint32),
+        ("dwOSDArrOffset", ctypes.c_uint32),
+        ("dwOSDArrSize",   ctypes.c_uint32),
+        ("dwOSDFrame",     ctypes.c_uint32),
+    ]
 
 
+class RTSSAppEntry(ctypes.Structure):
+    _pack_ = 1
+    _fields_ = [
+        ("dwProcessID",  ctypes.c_uint32),
+        ("szName",       ctypes.c_char * 260),
+        ("dwFlags",      ctypes.c_uint32),
+        ("dwTime0",      ctypes.c_uint32),
+        ("dwTime1",      ctypes.c_uint32),
+        ("dwFrames",     ctypes.c_uint32),
+        # avg frame time in microseconds
+        ("dwFrameTime",  ctypes.c_uint32),
+        ("dwOSDX",       ctypes.c_uint32),
+        ("dwOSDY",       ctypes.c_uint32),
+        ("dwOSDPixel",   ctypes.c_uint32),
+        ("dwOSDColor",   ctypes.c_uint32),
+        ("dwOSDFrame",   ctypes.c_uint32),
+        ("szOSD",        ctypes.c_char * 256),
+        ("szOSDOwner",   ctypes.c_char * 256),
+        # Extended fields (v2.3+)
+        ("dwAvgFrameTime",    ctypes.c_uint32),
+        ("dwAvgFPS",          ctypes.c_uint32),
+        ("dwInstantaneousFPS", ctypes.c_uint32),
+    ]
+
+
+_RTSS_SIGNATURE = 0x53535452
+
+
+# ── helpers ────────────────────────────────────────────────────────────────────
 def is_valorant_running() -> bool:
     for p in psutil.process_iter(["name"]):
         try:
@@ -45,148 +71,129 @@ def is_valorant_running() -> bool:
     return False
 
 
-def find_presentmon() -> Optional[str]:
-    candidates = [
-        os.path.join(os.path.dirname(__file__), _PM_EXE_NAME),
-        os.path.join(os.path.dirname(__file__), "PresentMon64a.exe"),
-        os.path.join(os.path.dirname(__file__), "tools", _PM_EXE_NAME),
-    ]
-    for c in candidates:
-        if os.path.isfile(c):
-            return c
-    # Try PATH
-    found = shutil.which(_PM_EXE_NAME) or shutil.which("PresentMon64a.exe")
-    return found
+def is_rtss_running() -> bool:
+    for p in psutil.process_iter(["name"]):
+        try:
+            if p.info["name"] == _RTSS_EXE:
+                return True
+        except (psutil.NoSuchProcess, psutil.AccessDenied):
+            pass
+    return False
 
 
-def detect_source() -> str:
-    if find_presentmon():
-        return "presentmon"
-    if os.path.isdir(_CFX_DIR) and glob.glob(os.path.join(_CFX_DIR, "*.json")):
-        return "capframex"
-    if is_valorant_running():
-        return "psutil"
-    return "none"
-
-
-_samples:    deque = deque(maxlen=50_000)
-_capturing:  bool = False
-_stop_event: Optional[threading.Event] = None
-_thread:     Optional[threading.Thread] = None
-_lock:       threading.Lock = threading.Lock()
-_active_src: str = "none"
-_pm_proc:    Optional[subprocess.Popen] = None
-
-
-def _presentmon_worker(buf: deque, stop: threading.Event, pm_path: str):
-    global _pm_proc
-
-    cmd = [
-        pm_path,
-        "--process_name", _VALO_EXE,
-        "--output_stdout",
-        "--stop_existing_session",
-    ]
-
+def _open_rtss_shm():
+    """Open RTSS shared memory. Returns mmap object or None."""
     try:
-        proc = subprocess.Popen(
-            cmd,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.DEVNULL,
-            text=True,
-            bufsize=1,
-            creationflags=0x08000000
-        )
-        _pm_proc = proc
+        INVALID_HANDLE = ctypes.c_void_p(-1).value
+        PAGE_READONLY = 0x02
+        FILE_MAP_READ = 0x0004
+
+        kernel32 = ctypes.windll.kernel32
+        h = kernel32.OpenFileMappingW(
+            FILE_MAP_READ, False,
+            ctypes.c_wchar_p(_SHM_NAME))
+
+        if not h or h == INVALID_HANDLE:
+            return None
+
+        size = ctypes.sizeof(RTSSSharedMemoryHeader) + \
+            256 * ctypes.sizeof(RTSSAppEntry)
+        buf = kernel32.MapViewOfFile(h, FILE_MAP_READ, 0, 0, size)
+        kernel32.CloseHandle(h)
+
+        if not buf:
+            return None
+        return buf
+
     except Exception:
-        _pm_proc = None
+        return None
+
+
+def _read_valo_fps(buf_ptr) -> Optional[float]:
+    try:
+        hdr = RTSSSharedMemoryHeader.from_address(buf_ptr)
+
+        if hdr.dwSignature != _RTSS_SIGNATURE:
+            return None
+        if hdr.dwVersion < 0x00020000:
+            return None
+
+        entry_size = hdr.dwAppEntrySize
+        arr_offset = hdr.dwAppArrOffset
+        arr_size = hdr.dwAppArrSize
+
+        for i in range(arr_size):
+            addr = buf_ptr + arr_offset + i * entry_size
+            try:
+                entry = RTSSAppEntry.from_address(addr)
+            except Exception:
+                continue
+
+            name = entry.szName.decode("utf-8", errors="ignore").lower()
+            if "valorant" not in name and "win64-shipping" not in name:
+                continue
+
+            if entry.dwInstantaneousFPS > 0:
+                return round(entry.dwInstantaneousFPS / 1000.0, 1)
+            if entry.dwAvgFPS > 0:
+                return round(entry.dwAvgFPS / 1000.0, 1)
+            if entry.dwFrameTime > 0:
+                return round(1_000_000.0 / entry.dwFrameTime, 1)
+
+        return None
+
+    except Exception:
+        return None
+
+
+# ── internal state ─────────────────────────────────────────────────────────────
+_buf:       deque = deque(maxlen=100_000)
+_capturing: bool = False
+_stop_evt:  Optional[threading.Event] = None
+_thread:    Optional[threading.Thread] = None
+_lock:      threading.Lock = threading.Lock()
+_source:    str = "none"
+
+
+@dataclass
+class FpsResult:
+    avg:     float = 0.0
+    min:     float = 0.0
+    max:     float = 0.0
+    low1:    float = 0.0
+    p99:     float = 0.0
+    samples: int = 0
+    source:  str = "none"
+
+
+# ── worker ─────────────────────────────────────────────────────────────────────
+_POLL_MS = 100   # poll every 100ms = 10 readings/sec
+
+
+def _rtss_worker(stop: threading.Event):
+    buf_ptr = _open_rtss_shm()
+    if not buf_ptr:
+        # RTSS not available — fall back to psutil
+        _psutil_worker(stop)
         return
 
-    col_idx = None
-    header_found = False
+    while not stop.is_set():
+        fps = _read_valo_fps(buf_ptr)
+        if fps and 1 <= fps <= 1500:
+            with _lock:
+                _buf.append(fps)
+        time.sleep(_POLL_MS / 1000.0)
 
     try:
-        for raw_line in proc.stdout:
-            if stop.is_set():
-                break
-
-            line = raw_line.strip()
-            if not line:
-                continue
-
-            # First non-empty line is the CSV header
-            if not header_found:
-                cols = [c.strip() for c in line.split(",")]
-                # Try primary column, then fallback
-                if _COL_MS_BETWEEN in cols:
-                    col_idx = cols.index(_COL_MS_BETWEEN)
-                elif _COL_DISPLAYED in cols:
-                    col_idx = cols.index(_COL_DISPLAYED)
-                header_found = True
-                continue
-
-            if col_idx is None:
-                continue
-
-            parts = line.split(",")
-            if len(parts) <= col_idx:
-                continue
-
-            try:
-                ms = float(parts[col_idx])
-                if 0.3 < ms < 500:          # valid range ~ 2 – 3000 fps
-                    buf.append(round(1000.0 / ms, 1))
-            except (ValueError, ZeroDivisionError):
-                pass
-
+        ctypes.windll.kernel32.UnmapViewOfFile(buf_ptr)
     except Exception:
         pass
-    finally:
-        try:
-            proc.terminate()
-        except Exception:
-            pass
-        _pm_proc = None
 
 
-def _fps_from_cfx_json(path: str) -> list:
-    try:
-        with open(path, "r", encoding="utf-8", errors="ignore") as f:
-            data = json.load(f)
-        fps_values = []
-        runs = data.get("Runs", [data])
-        for run in runs:
-            cap = run.get("CaptureData", run)
-            frametimes = (cap.get("MsBetweenPresents") or
-                          cap.get("MsBetweenDisplayChange") or [])
-            for ft in frametimes:
-                try:
-                    ft_f = float(ft)
-                    if 0.3 < ft_f < 500:
-                        fps_values.append(round(1000.0 / ft_f, 1))
-                except (TypeError, ValueError, ZeroDivisionError):
-                    pass
-        return fps_values
-    except Exception:
-        return []
+def _psutil_worker(stop: threading.Event):
+    global _source
+    _source = "psutil"
 
-
-def _cfx_watcher(buf: deque, stop: threading.Event):
-    seen: set = set(glob.glob(os.path.join(_CFX_DIR, "*.json")))
-    while not stop.is_set():
-        time.sleep(2)
-        try:
-            for f in glob.glob(os.path.join(_CFX_DIR, "*.json")):
-                if f not in seen:
-                    fps_list = _fps_from_cfx_json(f)
-                    if fps_list:
-                        buf.extend(fps_list)
-                    seen.add(f)
-        except Exception:
-            pass
-
-
-def _psutil_worker(buf: deque, stop: threading.Event):
     proc = None
     for p in psutil.process_iter(["name", "pid"]):
         try:
@@ -195,122 +202,82 @@ def _psutil_worker(buf: deque, stop: threading.Event):
                 break
         except (psutil.NoSuchProcess, psutil.AccessDenied):
             pass
-    if proc is None:
+    if not proc:
         return
 
-    prev_cpu = proc.cpu_times().user
-    prev_t = time.perf_counter()
+    try:
+        prev_sw = proc.num_ctx_switches().involuntary
+        prev_t = time.perf_counter()
+    except Exception:
+        return
 
     while not stop.is_set():
-        time.sleep(0.5)
+        time.sleep(0.25)
         try:
-            cur_cpu = proc.cpu_times().user
+            cur_sw = proc.num_ctx_switches().involuntary
             cur_t = time.perf_counter()
-            dt, dc = cur_t - prev_t, cur_cpu - prev_cpu
-            if dt > 0 and dc > 0:
-                fps_est = max(1.0, min((dc / dt) * 60, 1000.0))
-                buf.append(round(fps_est, 1))
-            prev_cpu, prev_t = cur_cpu, cur_t
+            dt = cur_t - prev_t
+            dsw = cur_sw - prev_sw
+            if dt > 0 and dsw > 0:
+                fps = round(dsw / dt, 1)
+                if 1 <= fps <= 1500:
+                    with _lock:
+                        _buf.append(fps)
+            prev_sw, prev_t = cur_sw, cur_t
         except (psutil.NoSuchProcess, psutil.AccessDenied):
             break
 
 
-def _capture_worker(stop: threading.Event, source: str):
-    global _samples
-    with _lock:
-        _samples = deque(maxlen=50_000)
-
-    workers = []
-
-    if source == "presentmon":
-        pm = find_presentmon()
-        if pm:
-            workers.append(threading.Thread(
-                target=_presentmon_worker, args=(_samples, stop, pm), daemon=True))
-        else:
-            source = "psutil"
-
-    if source == "capframex":
-        workers.append(threading.Thread(
-            target=_cfx_watcher, args=(_samples, stop), daemon=True))
-        workers.append(threading.Thread(
-            target=_psutil_worker, args=(_samples, stop), daemon=True))
-
-    if source == "psutil":
-        workers.append(threading.Thread(
-            target=_psutil_worker, args=(_samples, stop), daemon=True))
-
-    for w in workers:
-        w.start()
-    stop.wait()
-    for w in workers:
-        w.join(timeout=3)
-
-
+# ── public API ─────────────────────────────────────────────────────────────────
 def start_capture():
-    global _capturing, _thread, _stop_event, _active_src
+    global _capturing, _stop_evt, _thread, _buf, _source
     if _capturing:
         return
-    _active_src = detect_source()
-    _stop_event = threading.Event()
+
+    with _lock:
+        _buf = deque(maxlen=100_000)
+
+    _source = "rtss" if is_rtss_running() else "psutil"
+    _stop_evt = threading.Event()
     _thread = threading.Thread(
-        target=_capture_worker, args=(_stop_event, _active_src), daemon=True)
+        target=_rtss_worker, args=(_stop_evt,), daemon=True)
     _capturing = True
     _thread.start()
 
 
 def stop_capture() -> FpsResult:
-    global _capturing, _pm_proc
+    global _capturing
 
-    if not _capturing or _stop_event is None:
+    if not _capturing:
         return FpsResult()
 
-    if _pm_proc:
-        try:
-            _pm_proc.terminate()
-        except Exception:
-            pass
-
-    _stop_event.set()
+    if _stop_evt:
+        _stop_evt.set()
     if _thread:
         _thread.join(timeout=5)
     _capturing = False
 
     with _lock:
-        data = list(_samples)
+        data = list(_buf)
 
-    if not data:
+    if len(data) < 3:
         return FpsResult(source="no_data")
 
-    data_sorted = sorted(data)
-    cut = max(1, int(len(data_sorted) * 0.01))
+    s = sorted(data)
+    cut = max(1, int(len(s) * 0.01))
+    p99_idx = max(0, int(len(s) * 0.99) - 1)
 
     return FpsResult(
         avg=round(statistics.mean(data), 1),
-        min=round(min(data),             1),
-        max=round(max(data),             1),
-        low1=round(statistics.mean(data_sorted[:cut]), 1),
+        min=round(s[0],                  1),
+        max=round(s[-1],                 1),
+        low1=round(statistics.mean(s[:cut]), 1),
+        p99=round(s[p99_idx],            1),
         samples=len(data),
-        source=_active_src,
+        source=_source,
     )
 
 
 def get_live_fps() -> Optional[float]:
     with _lock:
-        return _samples[-1] if _samples else None
-
-
-def parse_capframex_file(path: str) -> Optional[FpsResult]:
-    data = _fps_from_cfx_json(path)
-    if not data:
-        return None
-    data_sorted = sorted(data)
-    cut = max(1, int(len(data_sorted) * 0.01))
-    return FpsResult(
-        avg=round(statistics.mean(data), 1),
-        min=round(min(data),             1),
-        max=round(max(data),             1),
-        low1=round(statistics.mean(data_sorted[:cut]), 1),
-        samples=len(data),
-        source="capframex",
-    )
+        return _buf[-1] if _buf else None
