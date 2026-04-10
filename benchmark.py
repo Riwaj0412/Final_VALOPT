@@ -24,39 +24,32 @@ class BenchmarkMenu(ctk.CTkFrame):
         self._live_on = True
 
         # title
-        ctk.CTkLabel(
-            self, text="FPS BENCHMARK",
-            font=("Orbitron", 32, "bold"), text_color=_RED
-        ).pack(pady=(28, 4))
+        ctk.CTkLabel(self, text="FPS BENCHMARK",
+                     font=("Orbitron", 32, "bold"),
+                     text_color=_RED).pack(pady=(28, 4))
 
-        # RTSS status banner
-        self._rtss_banner = ctk.CTkFrame(
-            self, fg_color="#1a1a1a", corner_radius=8)
-        self._rtss_banner.pack(fill="x", padx=60, pady=(0, 8))
+        # RTSS status
         self._rtss_lbl = ctk.CTkLabel(
-            self._rtss_banner, text="",
+            self, text="",
             font=("Orbitron", 11), text_color=_MUTED)
-        self._rtss_lbl.pack(pady=8)
-        self._refresh_rtss_banner()
+        self._rtss_lbl.pack(pady=(0, 4))
+        self._refresh_rtss()
 
-        # live FPS
+        # live fps
         self._live_lbl = ctk.CTkLabel(
             self, text="LIVE FPS  —",
             font=("Orbitron", 20, "bold"), text_color=_MUTED)
-        self._live_lbl.pack(pady=(4, 12))
+        self._live_lbl.pack(pady=(4, 10))
 
         # big button
         self._btn = ctk.CTkButton(
-            self,
-            text="START",
+            self, text="START",
             font=("Orbitron", 52, "bold"),
             width=340, height=160,
             corner_radius=12,
-            fg_color=_GREEN,
-            hover_color="#00a846",
+            fg_color=_GREEN, hover_color="#00a846",
             text_color=_WHITE,
-            command=self._toggle
-        )
+            command=self._toggle)
         self._btn.pack(pady=6)
 
         self._status = ctk.CTkLabel(
@@ -65,7 +58,7 @@ class BenchmarkMenu(ctk.CTkFrame):
             font=("Orbitron", 13), text_color=_MUTED)
         self._status.pack(pady=(8, 4))
 
-        # stats (shown after STOP)
+        # stats frame — shown after stop
         self._stats_frame = ctk.CTkFrame(self, fg_color="transparent")
 
         # back
@@ -79,17 +72,18 @@ class BenchmarkMenu(ctk.CTkFrame):
 
         self._update_live()
 
-    def _refresh_rtss_banner(self):
+    # ── RTSS badge ────────────────────────────────────────────────────────────
+    def _refresh_rtss(self):
         if is_rtss_running():
             self._rtss_lbl.configure(
-                text="✔  MSI Afterburner / RTSS detected  —  precise FPS active",
+                text="✔  RTSS detected — precise FPS",
                 text_color=_GREEN)
         else:
             self._rtss_lbl.configure(
-                text="⚠  RTSS not detected  —  install MSI Afterburner for precise readings\n"
-                     "Download: guru3d.com/download/msi-afterburner-beta-download",
+                text="⚠  RTSS not running — install MSI Afterburner for best accuracy",
                 text_color=_YELLOW)
 
+    # ── back ──────────────────────────────────────────────────────────────────
     def _on_back(self):
         self._live_on = False
         if self._recording:
@@ -97,6 +91,7 @@ class BenchmarkMenu(ctk.CTkFrame):
             self._recording = False
         self._back_cmd()
 
+    # ── live ticker ───────────────────────────────────────────────────────────
     def _update_live(self):
         if not self._live_on:
             return
@@ -108,6 +103,7 @@ class BenchmarkMenu(ctk.CTkFrame):
             self._live_lbl.configure(text="LIVE FPS  —", text_color=_MUTED)
         self.after(300, self._update_live)
 
+    # ── toggle ────────────────────────────────────────────────────────────────
     def _toggle(self):
         if not self._recording:
             self._do_start()
@@ -122,10 +118,10 @@ class BenchmarkMenu(ctk.CTkFrame):
             return
 
         if not is_rtss_running():
-            self._show_missing_tools_popup()
+            self._show_missing_rtss_popup()
             return
 
-        self._refresh_rtss_banner()
+        self._refresh_rtss()
         self._recording = True
         self._btn.configure(text="STOP", fg_color=_RED, hover_color="#cc2233")
         self._status.configure(
@@ -146,17 +142,17 @@ class BenchmarkMenu(ctk.CTkFrame):
         result = stop_capture()
         self.after(0, lambda: self._show_results(result))
 
+    # ── results ───────────────────────────────────────────────────────────────
     def _show_results(self, result):
-        if result.samples < 3:
+        if result.samples < 5:
             self._status.configure(
-                text="⚠  Not enough data — play for at least 10 seconds before stopping.",
+                text="⚠  Not enough data — play for at least 10 seconds.",
                 text_color=_RED)
             return
 
-        src_map = {"rtss": "RTSS / MSI Afterburner", "psutil": "Estimated"}
-        src_txt = src_map.get(result.source, result.source)
+        src_map = {"rtss": "RTSS", "psutil": "Estimated"}
         self._status.configure(
-            text=f"{result.samples} samples  •  source: {src_txt}",
+            text=f"{result.samples} samples  •  source: {src_map.get(result.source, result.source)}",
             text_color=_MUTED)
 
         for w in self._stats_frame.winfo_children():
@@ -174,103 +170,73 @@ class BenchmarkMenu(ctk.CTkFrame):
         row.pack()
 
         for label, value, color in stats:
-            card = ctk.CTkFrame(
-                row, fg_color=_PANEL,
-                corner_radius=10, width=118, height=108)
+            card = ctk.CTkFrame(row, fg_color=_PANEL,
+                                corner_radius=10, width=118, height=108)
             card.pack_propagate(False)
             card.pack(side="left", padx=6)
 
-            ctk.CTkLabel(
-                card, text=f"{value:.0f}",
-                font=("Orbitron", 28, "bold"), text_color=color
-            ).pack(pady=(18, 2))
-
-            ctk.CTkLabel(
-                card, text=label,
-                font=("Orbitron", 10), text_color=_MUTED
-            ).pack()
+            ctk.CTkLabel(card, text=f"{value:.0f}",
+                         font=("Orbitron", 28, "bold"),
+                         text_color=color).pack(pady=(18, 2))
+            ctk.CTkLabel(card, text=label,
+                         font=("Orbitron", 10),
+                         text_color=_MUTED).pack()
 
         self._stats_frame.pack(pady=10)
 
-    def _show_missing_tools_popup(self):
+    # ── RTSS missing popup ────────────────────────────────────────────────────
+    def _show_missing_rtss_popup(self):
         import webbrowser
-
         popup = ctk.CTkToplevel(self)
-        popup.title("VALOPT — Required Tool Missing")
-        popup.geometry("500x340")
+        popup.title("VALOPT")
+        popup.geometry("500x300")
         popup.configure(fg_color=_DARK)
         popup.resizable(False, False)
         popup.grab_set()
 
-        ctk.CTkLabel(
-            popup, text="⚠  RTSS NOT RUNNING",
-            font=("Orbitron", 17, "bold"), text_color=_RED
-        ).pack(pady=(24, 6))
+        ctk.CTkLabel(popup, text="⚠  RTSS NOT RUNNING",
+                     font=("Orbitron", 16, "bold"),
+                     text_color=_RED).pack(pady=(24, 8))
+        ctk.CTkLabel(popup,
+                     text="FPS Benchmark needs RivaTuner Statistics Server.\nInstall it then make sure it's running in the system tray.",
+                     font=("Orbitron", 11), text_color=_WHITE,
+                     justify="center").pack(pady=(0, 14))
 
-        ctk.CTkLabel(
-            popup,
-            text="FPS Benchmark requires RivaTuner Statistics Server (RTSS)\n"
-                 "to read accurate frame data from Valorant.",
-            font=("Orbitron", 11), text_color=_WHITE,
-            justify="center"
-        ).pack(pady=(0, 16))
+        for label, url in [
+            ("📥  MSI Afterburner (recommended)",
+             "https://www.msi.com/Landing/afterburner/graphics-cards"),
+            ("📥  RTSS Standalone",
+             "https://www.guru3d.com/download/rtss-rivatuner-statistics-server-download"),
+        ]:
+            ctk.CTkButton(popup, text=label,
+                          font=("Orbitron", 11, "bold"),
+                          fg_color=_PANEL, hover_color="#2a2a2a",
+                          border_width=1, border_color=_RED,
+                          text_color=_WHITE, height=38, width=380,
+                          command=lambda u=url: webbrowser.open(u)
+                          ).pack(pady=3)
 
-        # download buttons
-        links = [
-            ("📥  MSI Afterburner (includes RTSS)",
-             "https://www.msi.com/Landing/afterburner/graphics-cards",
-             _RED),
-            ("📥  RTSS Standalone (lighter)",
-             "https://www.guru3d.com/download/rtss-rivatuner-statistics-server-download",
-             _BLUE),
-        ]
+        ctk.CTkButton(popup, text="OK", font=("Orbitron", 12, "bold"),
+                      fg_color=_RED, hover_color="#ff5f6b",
+                      text_color=_WHITE, height=38, width=160,
+                      command=popup.destroy).pack(pady=(12, 0))
 
-        for label, url, color in links:
-            btn = ctk.CTkButton(
-                popup, text=label,
-                font=("Orbitron", 11, "bold"),
-                fg_color=color,
-                hover_color="#333333",
-                text_color=_WHITE,
-                height=40, width=380,
-                corner_radius=6,
-                command=lambda u=url: webbrowser.open(u)
-            )
-            btn.pack(pady=4)
-
-        ctk.CTkLabel(
-            popup,
-            text="After installing, make sure RTSS is running in your\n"
-                 "system tray, then press START again.",
-            font=("Orbitron", 10), text_color=_MUTED,
-            justify="center"
-        ).pack(pady=(12, 4))
-
-        ctk.CTkButton(
-            popup, text="OK — I'll install it",
-            font=("Orbitron", 12, "bold"),
-            fg_color=_PANEL, hover_color="#2a2a2a",
-            border_width=1, border_color="gray30",
-            text_color=_WHITE, height=38, width=200,
-            command=popup.destroy
-        ).pack(pady=(4, 16))
-
+    # ── generic popup ─────────────────────────────────────────────────────────
     def _show_popup(self, title, msg):
         popup = ctk.CTkToplevel(self)
         popup.title("VALOPT")
-        popup.geometry("420x180")
+        popup.geometry("420x175")
         popup.configure(fg_color=_DARK)
         popup.resizable(False, False)
         popup.grab_set()
         ctk.CTkLabel(popup, text=title,
-                     font=("Orbitron", 15, "bold"), text_color=_RED
-                     ).pack(pady=(28, 10))
+                     font=("Orbitron", 15, "bold"),
+                     text_color=_RED).pack(pady=(28, 10))
         ctk.CTkLabel(popup, text=msg,
-                     font=("Orbitron", 12), text_color=_WHITE
-                     ).pack()
+                     font=("Orbitron", 12),
+                     text_color=_WHITE).pack()
         ctk.CTkButton(popup, text="OK",
                       font=("Orbitron", 13, "bold"),
                       fg_color=_RED, hover_color="#ff5f6b",
                       text_color=_WHITE, height=40, width=120,
-                      command=popup.destroy
-                      ).pack(pady=16)
+                      command=popup.destroy).pack(pady=16)

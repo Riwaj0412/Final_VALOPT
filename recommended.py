@@ -34,9 +34,16 @@ def _apply_extreme_fps(results):
 
 
 def _clean_ram(results):
-    freed = clean_memory()
-    ok = freed > 0
-    label = f"RAM Cleaned → ~{freed} MB freed" if ok else "RAM Clean skipped"
+    result = clean_memory()
+    # clean_memory() returns a dict: {freed_mb, before_mb, after_mb, success}
+    if isinstance(result, dict):
+        freed = result.get("freed_mb", 0)
+        ok = result.get("success", False)
+    else:
+        # fallback if old version returns int
+        freed = result if isinstance(result, (int, float)) else 0
+        ok = freed > 0
+    label = f"RAM Cleaned → ~{freed:.0f} MB freed" if ok else "RAM Clean skipped"
     results.append((label, ok))
     session_logger.add_log(
         f"Recommended: {label}", "OK" if ok else "WARN"

@@ -103,10 +103,19 @@ class ManualMenu(ctk.CTkFrame):
                 messagebox.showerror("VALOPT", msg)
 
     def handle_ram_clean(self):
-        amt = ram_cleaner.clean_memory()
-        msg = f"RAM CLEANED: {amt}MB Released!" if amt > 0 else "RAM Optimized!"
-        add_log(msg, status="SUCCESS")
-        messagebox.showinfo("VALOPT", msg)
+        import threading
+
+        def _run():
+            result = ram_cleaner.clean_memory()
+            freed = result.get("freed_mb", 0) if isinstance(
+                result, dict) else (result or 0)
+            msg = f"RAM CLEANED!\n~{freed:.0f} MB freed." if freed > 0 else "RAM Optimized!\n(Standby list cleared)"
+            add_log(f"RAM Clean: {freed:.0f} MB freed", status="SUCCESS")
+            self.after(0, lambda: messagebox.showinfo(
+                "VALOPT — RAM CLEANER", msg))
+
+        # Run in background thread so UI doesn't hang
+        threading.Thread(target=_run, daemon=True).start()
 
     def handle_extreme_fps(self):
         if messagebox.askyesno("VALOPT", "Apply EXTREME FPS settings?"):

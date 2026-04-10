@@ -1,158 +1,16 @@
-import mmap
 import ctypes
 import ctypes.wintypes
 import time
 import threading
 import statistics
 import psutil
+import subprocess
+import re
 from collections import deque
 from dataclasses import dataclass
 from typing import Optional
 
-
 _VALO_EXE = "VALORANT-Win64-Shipping.exe"
-_RTSS_EXE = "RTSS.exe"
-_SHM_NAME = "RTSSSharedMemoryV2"
-
-# ── RTSS shared memory C structs (from RTSS SDK) ──────────────────────────────
-
-
-class RTSSSharedMemoryHeader(ctypes.Structure):
-    _pack_ = 1
-    _fields_ = [
-        ("dwSignature",    ctypes.c_uint32),   # 'RTSS' = 0x53535452
-        ("dwVersion",      ctypes.c_uint32),   # version * 0x10000
-        ("dwAppEntrySize", ctypes.c_uint32),   # sizeof one app entry
-        ("dwAppArrOffset", ctypes.c_uint32),   # offset to app array
-        ("dwAppArrSize",   ctypes.c_uint32),   # number of app entries
-        ("dwOSDEntrySize", ctypes.c_uint32),
-        ("dwOSDArrOffset", ctypes.c_uint32),
-        ("dwOSDArrSize",   ctypes.c_uint32),
-        ("dwOSDFrame",     ctypes.c_uint32),
-    ]
-
-
-class RTSSAppEntry(ctypes.Structure):
-    _pack_ = 1
-    _fields_ = [
-        ("dwProcessID",  ctypes.c_uint32),
-        ("szName",       ctypes.c_char * 260),
-        ("dwFlags",      ctypes.c_uint32),
-        ("dwTime0",      ctypes.c_uint32),
-        ("dwTime1",      ctypes.c_uint32),
-        ("dwFrames",     ctypes.c_uint32),
-        # avg frame time in microseconds
-        ("dwFrameTime",  ctypes.c_uint32),
-        ("dwOSDX",       ctypes.c_uint32),
-        ("dwOSDY",       ctypes.c_uint32),
-        ("dwOSDPixel",   ctypes.c_uint32),
-        ("dwOSDColor",   ctypes.c_uint32),
-        ("dwOSDFrame",   ctypes.c_uint32),
-        ("szOSD",        ctypes.c_char * 256),
-        ("szOSDOwner",   ctypes.c_char * 256),
-        # Extended fields (v2.3+)
-        ("dwAvgFrameTime",    ctypes.c_uint32),
-        ("dwAvgFPS",          ctypes.c_uint32),
-        ("dwInstantaneousFPS", ctypes.c_uint32),
-    ]
-
-
-_RTSS_SIGNATURE = 0x53535452
-
-
-# ── helpers ────────────────────────────────────────────────────────────────────
-def is_valorant_running() -> bool:
-    for p in psutil.process_iter(["name"]):
-        try:
-            if p.info["name"] == _VALO_EXE:
-                return True
-        except (psutil.NoSuchProcess, psutil.AccessDenied):
-            pass
-    return False
-
-
-def is_rtss_running() -> bool:
-    for p in psutil.process_iter(["name"]):
-        try:
-            if p.info["name"] == _RTSS_EXE:
-                return True
-        except (psutil.NoSuchProcess, psutil.AccessDenied):
-            pass
-    return False
-
-
-def _open_rtss_shm():
-    """Open RTSS shared memory. Returns mmap object or None."""
-    try:
-        INVALID_HANDLE = ctypes.c_void_p(-1).value
-        PAGE_READONLY = 0x02
-        FILE_MAP_READ = 0x0004
-
-        kernel32 = ctypes.windll.kernel32
-        h = kernel32.OpenFileMappingW(
-            FILE_MAP_READ, False,
-            ctypes.c_wchar_p(_SHM_NAME))
-
-        if not h or h == INVALID_HANDLE:
-            return None
-
-        size = ctypes.sizeof(RTSSSharedMemoryHeader) + \
-            256 * ctypes.sizeof(RTSSAppEntry)
-        buf = kernel32.MapViewOfFile(h, FILE_MAP_READ, 0, 0, size)
-        kernel32.CloseHandle(h)
-
-        if not buf:
-            return None
-        return buf
-
-    except Exception:
-        return None
-
-
-def _read_valo_fps(buf_ptr) -> Optional[float]:
-    try:
-        hdr = RTSSSharedMemoryHeader.from_address(buf_ptr)
-
-        if hdr.dwSignature != _RTSS_SIGNATURE:
-            return None
-        if hdr.dwVersion < 0x00020000:
-            return None
-
-        entry_size = hdr.dwAppEntrySize
-        arr_offset = hdr.dwAppArrOffset
-        arr_size = hdr.dwAppArrSize
-
-        for i in range(arr_size):
-            addr = buf_ptr + arr_offset + i * entry_size
-            try:
-                entry = RTSSAppEntry.from_address(addr)
-            except Exception:
-                continue
-
-            name = entry.szName.decode("utf-8", errors="ignore").lower()
-            if "valorant" not in name and "win64-shipping" not in name:
-                continue
-
-            if entry.dwInstantaneousFPS > 0:
-                return round(entry.dwInstantaneousFPS / 1000.0, 1)
-            if entry.dwAvgFPS > 0:
-                return round(entry.dwAvgFPS / 1000.0, 1)
-            if entry.dwFrameTime > 0:
-                return round(1_000_000.0 / entry.dwFrameTime, 1)
-
-        return None
-
-    except Exception:
-        return None
-
-
-# ── internal state ─────────────────────────────────────────────────────────────
-_buf:       deque = deque(maxlen=100_000)
-_capturing: bool = False
-_stop_evt:  Optional[threading.Event] = None
-_thread:    Optional[threading.Thread] = None
-_lock:      threading.Lock = threading.Lock()
-_source:    str = "none"
 
 
 @dataclass
@@ -166,41 +24,152 @@ class FpsResult:
     source:  str = "none"
 
 
-# ── worker ─────────────────────────────────────────────────────────────────────
-_POLL_MS = 100   # poll every 100ms = 10 readings/sec
+# ── helpers ────────────────────────────────────────────────────────────────────
+def is_valorant_running() -> bool:
+    for p in psutil.process_iter(["name"]):
+        try:
+            if p.info["name"] == _VALO_EXE:
+                return True
+        except Exception:
+            pass
+    return False
 
 
-def _rtss_worker(stop: threading.Event):
-    buf_ptr = _open_rtss_shm()
-    if not buf_ptr:
-        # RTSS not available — fall back to psutil
-        _psutil_worker(stop)
-        return
+def is_rtss_running() -> bool:
+    for p in psutil.process_iter(["name"]):
+        try:
+            if p.info["name"] == "RTSS.exe":
+                return True
+        except Exception:
+            pass
+    return False
 
-    while not stop.is_set():
-        fps = _read_valo_fps(buf_ptr)
-        if fps and 1 <= fps <= 1500:
-            with _lock:
-                _buf.append(fps)
-        time.sleep(_POLL_MS / 1000.0)
 
+def _get_valo_pid() -> Optional[int]:
+    for p in psutil.process_iter(["name", "pid"]):
+        try:
+            if p.info["name"] == _VALO_EXE:
+                return p.info["pid"]
+        except Exception:
+            pass
+    return None
+
+
+# ── Method 1: RTSS shared memory ──────────────────────────────────────────────
+_RTSS_SHM = "RTSSSharedMemoryV2"
+_RTSS_SIG = 0x53535452
+
+
+class _RTSSHeader(ctypes.Structure):
+    _pack_ = 1
+    _fields_ = [
+        ("dwSignature",    ctypes.c_uint32),
+        ("dwVersion",      ctypes.c_uint32),
+        ("dwAppEntrySize", ctypes.c_uint32),
+        ("dwAppArrOffset", ctypes.c_uint32),
+        ("dwAppArrSize",   ctypes.c_uint32),
+        ("dwOSDEntrySize", ctypes.c_uint32),
+        ("dwOSDArrOffset", ctypes.c_uint32),
+        ("dwOSDArrSize",   ctypes.c_uint32),
+        ("dwOSDFrame",     ctypes.c_uint32),
+    ]
+
+
+def _rtss_get_fps() -> Optional[float]:
     try:
-        ctypes.windll.kernel32.UnmapViewOfFile(buf_ptr)
+        FILE_MAP_READ = 0x0004
+        k32 = ctypes.windll.kernel32
+
+        h = k32.OpenFileMappingW(FILE_MAP_READ, False,
+                                 ctypes.c_wchar_p(_RTSS_SHM))
+        if not h:
+            return None
+
+        buf = k32.MapViewOfFile(h, FILE_MAP_READ, 0, 0, 65536)
+        k32.CloseHandle(h)
+        if not buf:
+            return None
+
+        try:
+            hdr = _RTSSHeader.from_address(buf)
+            if hdr.dwSignature != _RTSS_SIG or hdr.dwVersion < 0x00020000:
+                return None
+
+            entry_size = hdr.dwAppEntrySize
+            if entry_size < 100:
+                return None
+
+            for i in range(min(hdr.dwAppArrSize, 32)):
+                addr = buf + hdr.dwAppArrOffset + i * entry_size
+
+                name_buf = (ctypes.c_char * 260).from_address(addr + 4)
+                name = name_buf.value.decode("utf-8", errors="ignore").lower()
+
+                if "valorant" not in name and "win64-shipping" not in name:
+                    continue
+
+                frame_time = ctypes.c_uint32.from_address(addr + 28).value
+                if frame_time > 0:
+                    fps = 1_000_000.0 / frame_time
+                    if 1 <= fps <= 1500:
+                        return round(fps, 1)
+
+                for offset in [844, 848, 852, 856]:
+                    try:
+                        val = ctypes.c_uint32.from_address(addr + offset).value
+                        if val > 0:
+                            fps = val / 1000.0
+                            if 1 <= fps <= 1500:
+                                return round(fps, 1)
+                    except Exception:
+                        pass
+
+        finally:
+            k32.UnmapViewOfFile(buf)
+
     except Exception:
         pass
+    return None
 
 
-def _psutil_worker(stop: threading.Event):
-    global _source
-    _source = "psutil"
+# ── Method 2: Windows GPU performance counter ──────────────────────────────────
+def _gpu_counter_fps(pid: int) -> Optional[float]:
+    try:
+        # Query GPU Engine running time for this PID
+        cmd = (
+            f"(Get-Counter '\\GPU Engine(pid_{pid}*)\\Running Time').CounterSamples"
+            f" | Measure-Object CookedValue -Sum | Select-Object -ExpandProperty Sum"
+        )
+        out = subprocess.check_output(
+            ["powershell", "-WindowStyle", "Hidden", "-Command", cmd],
+            stderr=subprocess.DEVNULL,
+            timeout=3,
+            creationflags=0x08000000
+        ).decode(errors="ignore").strip()
 
+        val = float(out)
+
+        if val > 0:
+            fps = val / 166667.0  # rough conversion
+            if 1 <= fps <= 1500:
+                return round(fps, 1)
+    except Exception:
+        pass
+    return None
+
+
+# ── Method 3: Process frame counter (psutil) ───────────────────────────────────
+_SAMPLE_INTERVAL = 0.2   # seconds — sample every 200ms
+
+
+def _psutil_worker(buf: deque, stop: threading.Event):
     proc = None
     for p in psutil.process_iter(["name", "pid"]):
         try:
             if p.info["name"] == _VALO_EXE:
-                proc = p
+                proc = psutil.Process(p.info["pid"])
                 break
-        except (psutil.NoSuchProcess, psutil.AccessDenied):
+        except Exception:
             pass
     if not proc:
         return
@@ -212,23 +181,42 @@ def _psutil_worker(stop: threading.Event):
         return
 
     while not stop.is_set():
-        time.sleep(0.25)
+        time.sleep(_SAMPLE_INTERVAL)
         try:
             cur_sw = proc.num_ctx_switches().involuntary
             cur_t = time.perf_counter()
             dt = cur_t - prev_t
             dsw = cur_sw - prev_sw
+
             if dt > 0 and dsw > 0:
                 fps = round(dsw / dt, 1)
                 if 1 <= fps <= 1500:
-                    with _lock:
-                        _buf.append(fps)
+                    buf.append(fps)
+
             prev_sw, prev_t = cur_sw, cur_t
-        except (psutil.NoSuchProcess, psutil.AccessDenied):
+        except Exception:
             break
 
 
-# ── public API ─────────────────────────────────────────────────────────────────
+# ── RTSS polling worker ────────────────────────────────────────────────────────
+def _rtss_worker(buf: deque, stop: threading.Event):
+    """Poll RTSS shared memory every 100ms."""
+    while not stop.is_set():
+        fps = _rtss_get_fps()
+        if fps:
+            buf.append(fps)
+        time.sleep(0.1)
+
+
+# ── Capture state ──────────────────────────────────────────────────────────────
+_buf:       deque = deque(maxlen=100_000)
+_capturing: bool = False
+_stop_evt:  Optional[threading.Event] = None
+_thread:    Optional[threading.Thread] = None
+_lock:      threading.Lock = threading.Lock()
+_source:    str = "none"
+
+
 def start_capture():
     global _capturing, _stop_evt, _thread, _buf, _source
     if _capturing:
@@ -237,17 +225,24 @@ def start_capture():
     with _lock:
         _buf = deque(maxlen=100_000)
 
-    _source = "rtss" if is_rtss_running() else "psutil"
     _stop_evt = threading.Event()
+
+    # Pick best available method
+    if is_rtss_running():
+        _source = "rtss"
+        worker = _rtss_worker
+    else:
+        _source = "psutil"
+        worker = _psutil_worker
+
     _thread = threading.Thread(
-        target=_rtss_worker, args=(_stop_evt,), daemon=True)
+        target=worker, args=(_buf, _stop_evt), daemon=True)
     _capturing = True
     _thread.start()
 
 
 def stop_capture() -> FpsResult:
     global _capturing
-
     if not _capturing:
         return FpsResult()
 
@@ -260,7 +255,7 @@ def stop_capture() -> FpsResult:
     with _lock:
         data = list(_buf)
 
-    if len(data) < 3:
+    if len(data) < 5:
         return FpsResult(source="no_data")
 
     s = sorted(data)

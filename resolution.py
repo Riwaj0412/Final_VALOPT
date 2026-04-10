@@ -27,7 +27,10 @@ class ResolutionMenu(ctk.CTkFrame):
             self.menu_container, values=supported_res,
             fg_color="#ff4655", button_color="#ff4655", button_hover_color="#d13a45",
             dropdown_fg_color="#0f1923", dropdown_hover_color="#ff4655",
-            font=styles.FONT_ORBITRON_SM, width=250, height=40, corner_radius=0
+            text_color="white", dropdown_text_color="white",
+            font=styles.FONT_ORBITRON_SM,
+            dropdown_font=styles.FONT_ORBITRON_SM,
+            width=250, height=40, corner_radius=0
         )
         self.res_dropdown.pack(pady=(5, 20))
         self.res_dropdown.set(supported_res[0])
@@ -39,7 +42,10 @@ class ResolutionMenu(ctk.CTkFrame):
             self.menu_container, values=supported_rates,
             fg_color="#ff4655", button_color="#ff4655", button_hover_color="#d13a45",
             dropdown_fg_color="#0f1923", dropdown_hover_color="#ff4655",
-            font=styles.FONT_ORBITRON_SM, width=250, height=40, corner_radius=0
+            text_color="white", dropdown_text_color="white",
+            font=styles.FONT_ORBITRON_SM,
+            dropdown_font=styles.FONT_ORBITRON_SM,
+            width=250, height=40, corner_radius=0
         )
         self.refresh_dropdown.pack(pady=(5, 30))
         self.refresh_dropdown.set(supported_rates[0])
